@@ -1,7 +1,9 @@
 from pico2d import *
+from character import Character
 
 open_canvas(1920, 1080)
 background = load_image('background.png')
+character = Character()
 
 running = True
 
@@ -22,6 +24,7 @@ while running:
 
     clear_canvas()
     background.draw(960, 540, 1920, 1080)
+    character.draw()
     update_canvas()
     delay(0.01)
 
