@@ -81,6 +81,23 @@ class CharacterTests(unittest.TestCase):
         self.assertEqual(self.player.y, self.player.ground_y)
         self.assertEqual(self.player.state, 'run')
 
+    def test_all_frames_and_directions_fit_selected_sheet(self):
+        for state, animation in self.player.ANIMATIONS.items():
+            self.player.state = state
+            for frame in range(4):
+                self.player.frame = frame
+                for direction in (-1, 1):
+                    self.player.facing = direction
+                    self.player.draw()
+                    image = self.images[animation['sheet'] - 1]
+                    left, bottom, width, height, _, flip, *_ = (
+                        image.clip_composite_draw.call_args.args)
+                    self.assertGreaterEqual(left, 0)
+                    self.assertGreaterEqual(bottom, 0)
+                    self.assertLessEqual(left + width, 1254)
+                    self.assertLessEqual(bottom + height, 1254)
+                    self.assertEqual(flip, 'h' if direction == -1 else '')
+
 
 if __name__ == '__main__':
     unittest.main()
