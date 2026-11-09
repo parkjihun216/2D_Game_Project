@@ -71,6 +71,16 @@ class CharacterTests(unittest.TestCase):
         self.release(game.SDLK_LEFT)
         self.assertEqual(self.player.state, 'idle')
 
+    def test_jump_movement_and_update_rate(self):
+        self.press(game.SDLK_RIGHT)
+        self.press(game.SDLK_j)
+        start_x = self.player.x
+        for _ in range(60):
+            self.player.update(1 / 60)
+        self.assertGreater(self.player.x, start_x)
+        self.assertEqual(self.player.y, self.player.ground_y)
+        self.assertEqual(self.player.state, 'run')
+
 
 if __name__ == '__main__':
     unittest.main()
