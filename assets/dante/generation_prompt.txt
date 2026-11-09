@@ -1,0 +1,12 @@
+Use case: stylized-concept
+Asset type: transparent PNG sprite sheet for a 2D side-scrolling action game.
+Primary request: Dante from Devil May Cry, recognizable silver medium-length hair, long crimson leather coat, dark fitted clothing, boots, fingerless gloves, broad silver sword and twin pistols. Create a polished detailed pixel-art game sprite sheet, not a poster.
+Composition: exactly 16 full-body sprites arranged in a strictly regular 4-column by 4-row grid on a square 2048x2048 transparent canvas, each invisible cell 512x512. Every character faces screen right in a consistent side / slight three-quarter view. Consistent anatomy, outfit, scale, lighting and proportions throughout. Adult athletic proportions, not chibi. Character standing height approximately 340 pixels per cell. Ground baseline at local y=440 in each cell and root at local x=256. Keep all weapons, coats and effects strictly within each cell with 35 pixel minimum safe margins. Never overlap adjacent cells.
+Row 1: four subtly different sequential idle breathing frames with sword held low, coat gently moving.
+Row 2: four sequential run cycle keyframes with distinct alternating leg and arm positions and coat trailing behind.
+Row 3: four sequential sword attack keyframes: anticipation, raised sword windup, powerful forward horizontal cut with a restrained red-orange arc, recovery. Keep the entire sword inside its cell.
+Row 4: four sequential twin-pistol firing keyframes: raising pistols, aiming forward, firing with small muzzle flash, recoil.
+Style: crisp high quality pixel-art / hand-pixeled dark fantasy action sprite aesthetic, strong readable silhouettes, restrained anti-aliasing, rich crimson and charcoal palette with bright silver hair, coherent directional highlights.
+Constraints: true alpha transparent background; no background scenery, no ground plane or shadow, no text, no labels, no visible grid, no borders, no logos, no watermark. All 16 sprites complete and isolated. This is a newly generated fan-art resource.
+
+Final edit: Preserve all 16 poses, 4 by 4 layout, character design, style, colors and alpha transparency. Recompose every sprite to approximately 70 percent of its previous size within its cell with transparent padding. Repair clipped sword tip. Keep complete weapons and effects within each cell; consistent scale, central roots, aligned foot baselines. No grid or labels.
