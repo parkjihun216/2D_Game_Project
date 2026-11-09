@@ -56,6 +56,21 @@ class CharacterTests(unittest.TestCase):
         self.player.update(0.3)
         self.assertEqual(self.player.state, 'idle')
 
+    def test_thrust_direction_bounds_and_input_lock(self):
+        self.press(game.SDLK_LEFT)
+        start_x = self.player.x
+        self.press(game.SDLK_i)
+        self.player.update(0.15)
+        self.assertLess(self.player.x, start_x)
+        self.press(game.SDLK_o)
+        self.press(game.SDLK_i)
+        self.assertEqual((self.player.state, self.player.frame), ('thrust', 1))
+        self.player.update(10)
+        self.assertEqual(self.player.state, 'run')
+        self.assertGreaterEqual(self.player.x, 130 * self.player.DRAW_SCALE)
+        self.release(game.SDLK_LEFT)
+        self.assertEqual(self.player.state, 'idle')
+
 
 if __name__ == '__main__':
     unittest.main()
