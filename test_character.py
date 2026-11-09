@@ -41,6 +41,21 @@ class CharacterTests(unittest.TestCase):
                 self.assertEqual(self.player.y, self.player.ground_y)
                 self.release(key)
 
+    def test_air_slam_lands_before_impact_frame(self):
+        self.press(game.SDLK_j)
+        self.player.update(0.4)
+        self.press(game.SDLK_k)
+        self.assertEqual((self.player.state, self.player.frame), ('slam', 1))
+        self.assertLess(self.player.velocity_y, 0)
+        for _ in range(120):
+            self.player.update(1 / 120)
+            if self.player.frame == 2:
+                break
+        self.assertEqual((self.player.state, self.player.frame), ('slam', 2))
+        self.assertEqual(self.player.y, self.player.ground_y)
+        self.player.update(0.3)
+        self.assertEqual(self.player.state, 'idle')
+
 
 if __name__ == '__main__':
     unittest.main()
