@@ -21,8 +21,13 @@ def handle_events():
             character.handle_event(event)
 
 
+previous_time = get_time()
 while running:
+    current_time = get_time()
+    delta_time = current_time - previous_time
+    previous_time = current_time
     handle_events()
+    character.update(min(delta_time, 0.1))
 
     clear_canvas()
     background.draw(960, 540, 1920, 1080)
