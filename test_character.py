@@ -28,6 +28,19 @@ class CharacterTests(unittest.TestCase):
         self.assertEqual(self.player.y, self.player.ground_y)
         self.assertEqual(self.player.state, 'idle')
 
+    def test_skills_complete_and_use_second_sheet(self):
+        for key, state in ((game.SDLK_i, 'thrust'),
+                           (game.SDLK_o, 'uppercut'), (game.SDLK_k, 'slam')):
+            with self.subTest(state=state):
+                self.press(key)
+                self.assertEqual(self.player.state, state)
+                self.player.draw()
+                self.images[1].clip_composite_draw.assert_called()
+                self.player.update(1.5)
+                self.assertEqual(self.player.state, 'idle')
+                self.assertEqual(self.player.y, self.player.ground_y)
+                self.release(key)
+
 
 if __name__ == '__main__':
     unittest.main()
