@@ -30,18 +30,18 @@ class CharacterTests(unittest.TestCase):
         self.assertNotEqual(self.player.frame, 0)
         self.player.update(1.0)
         self.assertEqual(self.player.y, self.player.ground_y)
-        self.assertEqual(self.player.state, 'idle')
+        self.assertEqual(self.player.state, 'IDLE')
 
     def test_skills_complete_and_use_second_sheet(self):
-        for key, state in ((game.SDLK_i, 'thrust'),
-                           (game.SDLK_o, 'uppercut'), (game.SDLK_k, 'slam')):
+        for key, state in ((game.SDLK_i, 'THRUST'),
+                           (game.SDLK_o, 'UPPERCUT'), (game.SDLK_k, 'SLAM')):
             with self.subTest(state=state):
                 self.press(key)
                 self.assertEqual(self.player.state, state)
                 self.player.draw()
                 self.images[1].clip_composite_draw.assert_called()
                 self.player.update(1.5)
-                self.assertEqual(self.player.state, 'idle')
+                self.assertEqual(self.player.state, 'IDLE')
                 self.assertEqual(self.player.y, self.player.ground_y)
                 self.release(key)
 
@@ -49,16 +49,16 @@ class CharacterTests(unittest.TestCase):
         self.press(game.SDLK_j)
         self.player.update(0.4)
         self.press(game.SDLK_k)
-        self.assertEqual((self.player.state, self.player.frame), ('slam', 1))
+        self.assertEqual((self.player.state, self.player.frame), ('SLAM', 1))
         self.assertLess(self.player.velocity_y, 0)
         for _ in range(120):
             self.player.update(1 / 120)
             if self.player.frame == 2:
                 break
-        self.assertEqual((self.player.state, self.player.frame), ('slam', 2))
+        self.assertEqual((self.player.state, self.player.frame), ('SLAM', 2))
         self.assertEqual(self.player.y, self.player.ground_y)
         self.player.update(0.3)
-        self.assertEqual(self.player.state, 'idle')
+        self.assertEqual(self.player.state, 'IDLE')
 
     def test_thrust_direction_bounds_and_input_lock(self):
         self.press(game.SDLK_LEFT)
@@ -68,12 +68,12 @@ class CharacterTests(unittest.TestCase):
         self.assertLess(self.player.x, start_x)
         self.press(game.SDLK_o)
         self.press(game.SDLK_i)
-        self.assertEqual((self.player.state, self.player.frame), ('thrust', 1))
+        self.assertEqual((self.player.state, self.player.frame), ('THRUST', 1))
         self.player.update(10)
-        self.assertEqual(self.player.state, 'run')
+        self.assertEqual(self.player.state, 'RUN')
         self.assertGreaterEqual(self.player.x, 130 * self.player.DRAW_SCALE)
         self.release(game.SDLK_LEFT)
-        self.assertEqual(self.player.state, 'idle')
+        self.assertEqual(self.player.state, 'IDLE')
 
     def test_jump_movement_and_update_rate(self):
         self.press(game.SDLK_RIGHT)
@@ -83,7 +83,7 @@ class CharacterTests(unittest.TestCase):
             self.player.update(1 / 60)
         self.assertGreater(self.player.x, start_x)
         self.assertEqual(self.player.y, self.player.ground_y)
-        self.assertEqual(self.player.state, 'run')
+        self.assertEqual(self.player.state, 'RUN')
 
     def test_all_frames_and_directions_fit_selected_sheet(self):
         for state, animation in self.player.ANIMATIONS.items():

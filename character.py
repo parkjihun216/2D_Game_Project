@@ -16,27 +16,27 @@ class Character:
     JUMP_SPEED = 650.0
     # character1: 기본 동작 / character2: 점프와 추가 스킬.
     ANIMATIONS = {
-        'idle': {'sheet': 1, 'row': 0, 'interval': 0.16},
-        'run': {'sheet': 1, 'row': 1, 'interval': 0.10},
-        'attack': {'sheet': 1, 'row': 2, 'interval': 0.12},
-        'jump': {'sheet': 2, 'row': 0, 'interval': 0.12},
-        'thrust': {'sheet': 2, 'row': 1, 'interval': 0.10},
-        'uppercut': {'sheet': 2, 'row': 2, 'interval': 0.12},
-        'slam': {'sheet': 2, 'row': 3, 'interval': 0.12},
+        'IDLE': {'sheet': 1, 'row': 0, 'interval': 0.16},
+        'RUN': {'sheet': 1, 'row': 1, 'interval': 0.10},
+        'ATTACK': {'sheet': 1, 'row': 2, 'interval': 0.12},
+        'JUMP': {'sheet': 2, 'row': 0, 'interval': 0.12},
+        'THRUST': {'sheet': 2, 'row': 1, 'interval': 0.10},
+        'UPPERCUT': {'sheet': 2, 'row': 2, 'interval': 0.12},
+        'SLAM': {'sheet': 2, 'row': 3, 'interval': 0.12},
     }
     # 각 셀 내부의 발 기준점. 공중 포즈의 자체 여백도 보정합니다.
     PIVOTS = {
-        'idle': ((160, 301), (160, 301), (160, 301), (160, 301)),
-        'run': ((160, 277), (150, 277), (155, 277), (155, 277)),
-        'attack': ((160, 262), (150, 262), (150, 262), (150, 262)),
-        'jump': ((160, 287), (160, 291), (160, 255), (160, 287)),
-        'thrust': ((160, 272), (150, 269), (155, 267), (150, 269)),
-        'uppercut': ((155, 273), (150, 271), (150, 270), (150, 272)),
-        'slam': ((160, 224), (160, 230), (150, 263), (150, 264)),
+        'IDLE': ((160, 301), (160, 301), (160, 301), (160, 301)),
+        'RUN': ((160, 277), (150, 277), (155, 277), (155, 277)),
+        'ATTACK': ((160, 262), (150, 262), (150, 262), (150, 262)),
+        'JUMP': ((160, 287), (160, 291), (160, 255), (160, 287)),
+        'THRUST': ((160, 272), (150, 269), (155, 267), (150, 269)),
+        'UPPERCUT': ((155, 273), (150, 271), (150, 270), (150, 272)),
+        'SLAM': ((160, 224), (160, 230), (150, 263), (150, 264)),
     }
     LEFT_KEYS = (SDLK_LEFT, SDLK_a)
     RIGHT_KEYS = (SDLK_RIGHT, SDLK_d)
-    SKILL_KEYS = {SDLK_u: 'attack', SDLK_i: 'thrust', SDLK_o: 'uppercut'}
+    SKILL_KEYS = {SDLK_u: 'ATTACK', SDLK_i: 'THRUST', SDLK_o: 'UPPERCUT'}
 
     def __init__(self, canvas_width=1920):
         self.x, self.y = canvas_width / 2, 465.0
@@ -48,7 +48,7 @@ class Character:
                 1: load_image('character1.png'),
                 2: load_image('character2.png'),
             }
-        self.state = 'idle'
+        self.state = 'IDLE'
         self.frame = 0
         self.frame_elapsed = 0.0
         self.facing = 1
@@ -72,7 +72,7 @@ class Character:
         direction = self.move_direction
         if direction:
             self.facing = direction
-        self._set_state('run' if direction else 'idle')
+        self._set_state('RUN' if direction else 'IDLE')
 
     def handle_event(self, event):
         if event.type == SDL_KEYUP:
@@ -81,23 +81,23 @@ class Character:
             first_press = event.key not in self.held_keys
             self.held_keys.add(event.key)
             if first_press:
-                if self.state in ('idle', 'run'):
+                if self.state in ('IDLE', 'RUN'):
                     self._sync_movement()
                     if event.key == SDLK_j:
-                        self._set_state('jump')
+                        self._set_state('JUMP')
                     elif event.key == SDLK_k:
                         # 지상에서 누르면 짧게 도약한 뒤 내려찍습니다.
-                        self._set_state('slam')
+                        self._set_state('SLAM')
                         self.velocity_y = 480.0
                     elif event.key in self.SKILL_KEYS:
                         self._set_state(self.SKILL_KEYS[event.key])
-                elif (self.state == 'jump' and self.frame in (1, 2)
+                elif (self.state == 'JUMP' and self.frame in (1, 2)
                       and event.key == SDLK_k):
                     # 점프 중에는 곧바로 하강 공격으로 연결합니다.
-                    self._set_state('slam')
+                    self._set_state('SLAM')
                     self._set_frame(1)
                     self.velocity_y = -900.0
-        if self.state in ('idle', 'run'):
+        if self.state in ('IDLE', 'RUN'):
             self._sync_movement()
 
     def _move_x(self, distance):
@@ -122,12 +122,12 @@ class Character:
             remaining -= step
 
     def _update_step(self, dt):
-        if self.state in ('idle', 'run'):
+        if self.state in ('IDLE', 'RUN'):
             self._sync_movement()
         self.frame_elapsed += dt
         interval = self.ANIMATIONS[self.state]['interval']
 
-        if self.state == 'jump':
+        if self.state == 'JUMP':
             if self.frame == 0:
                 if self.frame_elapsed + 1e-10 >= interval:
                     self._set_frame(1)
@@ -144,7 +144,7 @@ class Character:
                 self._sync_movement()
             return
 
-        if self.state == 'slam':
+        if self.state == 'SLAM':
             if self.frame in (0, 1):
                 landed = self._apply_gravity(dt)
                 if landed:
@@ -159,9 +159,9 @@ class Character:
                     self._sync_movement()
             return
 
-        if self.state == 'run':
+        if self.state == 'RUN':
             self._move_x(self.move_direction * self.MOVE_SPEED * dt)
-        elif self.state == 'thrust' and self.frame in (1, 2):
+        elif self.state == 'THRUST' and self.frame in (1, 2):
             self._move_x(self.facing * 720.0 * dt)
 
         if self.frame_elapsed + 1e-10 >= interval:
@@ -169,7 +169,7 @@ class Character:
             self.frame += 1
             if self.frame == 4:
                 self.frame = 0
-                if self.state not in ('idle', 'run'):
+                if self.state not in ('IDLE', 'RUN'):
                     self._sync_movement()
 
     def draw(self):
