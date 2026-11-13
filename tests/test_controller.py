@@ -38,6 +38,13 @@ class CharacterTests(unittest.TestCase):
         self.release(game.SDLK_d)
         self.assertEqual((self.player.dir, self.player.face_dir), (-1, -1))
 
+    def test_action_completion_uses_current_movement_input(self):
+        self.press(game.SDLK_u)
+        self.press(game.SDLK_LEFT)
+        self.assertEqual(self.player.state, 'ATTACK')
+        self.player.update(0.5)
+        self.assertEqual((self.player.state, self.player.face_dir), ('RUN', -1))
+
     def test_jump_lands_and_cannot_restart_in_air(self):
         self.press(game.SDLK_j)
         self.player.update(0.3)
