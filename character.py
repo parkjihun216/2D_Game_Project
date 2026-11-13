@@ -1,6 +1,6 @@
 from pico2d import (
     SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT,
-    SDLK_a, SDLK_d, SDLK_u, SDLK_i, SDLK_o, SDLK_k, SDLK_j, load_image,
+    SDLK_a, SDLK_d, SDLK_u, SDLK_i, SDLK_o, SDLK_k, SDLK_j, SDLK_l, load_image,
 )
 
 from transitions import Machine
@@ -16,6 +16,15 @@ class Character:
     MOVE_SPEED = 300.0
     GRAVITY = 1800.0
     JUMP_SPEED = 650.0
+    MORPH_TIME = 0.32
+    DEMON_TIME = 5.0
+    TRIGGER_COOLDOWN = 30.0
+    # 이펙트 시트는 동작별 한 행, 동작 단계별 네 열입니다.
+    FX_ROWS = {'ATTACK': 0, 'THRUST': 1, 'UPPERCUT': 2, 'SLAM': 3, 'JUMP': 4}
+    FX_OPACITY = (0.26, 0.62, 0.86, 0.48)
+    # 각 기술의 진행 방향 뒤로 남는 악마 잔상의 간격입니다.
+    DEMON_TRAIL = {'ATTACK': (-22, 4), 'THRUST': (-48, 0), 'UPPERCUT': (-8, -26),
+                   'SLAM': (0, 32), 'JUMP': (-10, -18)}
     # character1: 기본 동작 / character2: 점프와 추가 스킬.
     ANIMATIONS = {
         'IDLE': {'sheet': 1, 'row': 0, 'interval': 0.16},
@@ -42,7 +51,7 @@ class Character:
         {'trigger': 'start_run', 'source': 'IDLE', 'dest': 'RUN'},
         {'trigger': 'stop_run', 'source': 'RUN', 'dest': 'IDLE'},
         {'trigger': 'attack', 'source': ['IDLE', 'RUN'], 'dest': 'ATTACK'},
-        {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP'},
+        {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP', 'after': 'start_jump_fx'},
         {'trigger': 'fall', 'source': ['RUN', 'THRUST'], 'dest': 'JUMP'},
         {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
         {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
@@ -68,9 +77,15 @@ class Character:
             Character.images = {
                 1: load_image('character1.png'),
                 2: load_image('character2.png'),
+                'fx': load_image('assets/dante/demon_skill_fx.png'),
+                'morph': load_image('assets/dante/devil_trigger_transform_v2.png'),
+                'demon_run': load_image('assets/dante/demon_run.png'),
             }
         self.frame = 0
         self.frame_elapsed = 0.0
+        self.jump_fx = False
+        self.demon_remaining = 0.0
+        self.trigger_cooldown = 0.0
         self.face_dir = 1
         self.dir = 0
         self.pressed_keys = []
@@ -86,6 +101,7 @@ class Character:
 
     def reset_animation(self):
         self._set_frame(0)
+        self.jump_fx = False
 
     def _set_frame(self, frame):
         self.frame = frame
@@ -107,6 +123,9 @@ class Character:
 
     def start_ground_slam(self):
         self.velocity_y = 480.0
+
+    def start_jump_fx(self):
+        self.jump_fx = True
 
     def start_air_slam(self):
         self._set_frame(1)
@@ -153,6 +172,9 @@ class Character:
                 self.uppercut()
             elif event.key == SDLK_k:
                 self.slam()
+            elif event.key == SDLK_l and self.trigger_cooldown == 0:
+                self.demon_remaining = self.MORPH_TIME + self.DEMON_TIME
+                self.trigger_cooldown = self.TRIGGER_COOLDOWN
 
     def _move_x(self, distance):
         margin = 130 * self.DRAW_SCALE
@@ -171,6 +193,8 @@ class Character:
     def update(self, delta_time):
         # 짧은 고정 간격으로 계산해 낮은 FPS에서도 바닥 관통을 방지합니다.
         remaining = max(0.0, delta_time)
+        self.demon_remaining = max(0.0, self.demon_remaining - remaining)
+        self.trigger_cooldown = max(0.0, self.trigger_cooldown - remaining)
         while remaining > 1e-10:
             step = min(remaining, 1 / 120)
             self._update_step(step)
@@ -230,7 +254,53 @@ class Character:
             if self.frame == 0 and self.state not in ('IDLE', 'RUN'):
                 self.finish_action()
 
+    def _draw_skill_fx(self, row, empowered):
+        sheet = self.images['fx']
+        width, height = sheet.w // 4, sheet.h // len(self.FX_ROWS)
+        opacity = self.FX_OPACITY[self.frame]
+        if self.frame == 3:
+            opacity *= max(0.0, 1 - self.frame_elapsed / self.ANIMATIONS[self.state]['interval'])
+        # 각 셀의 발 기준점은 왼쪽에서 236px, 위에서 422px입니다.
+        scale = 1.05 if empowered else 0.82
+        x = self.x + (width / 2 - 236) * scale * self.face_dir
+        y = self.y + (422 - height / 2) * scale
+        clip = (self.frame * width, sheet.h - (row + 1) * height, width, height, 0,
+                'h' if self.face_dir < 0 else '')
+        if empowered and self.frame in (1, 2):
+            dx, dy = self.DEMON_TRAIL[self.state]
+            for distance, alpha in ((2, 0.17), (1, 0.38)):
+                sheet.opacify(alpha)
+                sheet.clip_composite_draw(*clip, x + dx * distance * self.face_dir,
+                                          y + dy * distance, width * scale, height * scale)
+        sheet.opacify(1.0 if empowered else opacity)
+        sheet.clip_composite_draw(*clip, x, y, width * scale, height * scale)
+
+    def _draw_demon(self):
+        if self.demon_remaining > self.DEMON_TIME:
+            progress = 1 - (self.demon_remaining - self.DEMON_TIME) / self.MORPH_TIME
+            frame = min(3, max(0, int(progress * 4)))
+        elif self.state in self.FX_ROWS:
+            self._draw_skill_fx(self.FX_ROWS[self.state], empowered=True)
+            return
+        else:
+            frame = 3
+
+        if self.state == 'RUN' and self.demon_remaining <= self.DEMON_TIME:
+            image, frame, foot_y, scale = self.images['demon_run'], self.frame, 626, 0.40
+        else:
+            image, foot_y, scale = self.images['morph'], 680, 0.34
+        width = image.w // 4
+        image.clip_composite_draw(frame * width, 0, width, image.h, 0,
+                                  'h' if self.face_dir < 0 else '', self.x,
+                                  self.y + (foot_y - image.h / 2) * scale,
+                                  width * scale, image.h * scale)
+
     def draw(self):
+        if self.demon_remaining > 0:
+            self._draw_demon()
+            return
+        if self.state in self.FX_ROWS and (self.state != 'JUMP' or self.jump_fx):
+            self._draw_skill_fx(self.FX_ROWS[self.state], empowered=False)
         # LEC 08: action(행)과 frame(열)로 사각형을 선택합니다.
         animation = self.ANIMATIONS[self.state]
         image = self.images[animation['sheet']]

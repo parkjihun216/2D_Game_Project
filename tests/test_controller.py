@@ -9,7 +9,8 @@ from background import Background
 class CharacterTests(unittest.TestCase):
     def setUp(self):
         game.Character.images = None
-        self.images = [Mock(w=1254, h=1254), Mock(w=1254, h=1254)]
+        self.images = [Mock(w=1254, h=1254), Mock(w=1254, h=1254), Mock(w=2048, h=2560),
+                       Mock(w=2720, h=724), Mock(w=2172, h=724)]
         with patch.object(game, 'load_image', side_effect=self.images):
             self.player = game.Character()
 
@@ -28,6 +29,34 @@ class CharacterTests(unittest.TestCase):
         load.assert_not_called()
         self.assertIs(second.images, self.player.images)
         self.assertIsNot(second.machine, self.player.machine)
+
+    def test_devil_trigger_replaces_body_and_expires_during_a_skill(self):
+        self.press(game.SDLK_l)
+        self.player.draw()
+        self.images[3].clip_composite_draw.assert_called_once()
+        self.images[0].clip_composite_draw.assert_not_called()
+        self.player.update(self.player.MORPH_TIME + 0.01)
+        self.press(game.SDLK_LEFT)
+        self.player.draw()
+        self.assertEqual(self.images[4].clip_composite_draw.call_args.args[5], 'h')
+        self.player.update(self.player.DEMON_TIME - 0.20)
+        self.press(game.SDLK_i)
+        self.player.update(0.12)
+        self.player.draw()
+        self.assertEqual(self.images[2].clip_composite_draw.call_count, 3)
+        self.images[2].opacify.assert_called_with(1.0)
+        self.images[1].clip_composite_draw.assert_not_called()
+        self.player.update(0.10)
+        self.player.draw()
+        self.images[1].clip_composite_draw.assert_called_once()
+        self.assertEqual(self.player.state, 'THRUST')
+        self.release(game.SDLK_l)
+        self.press(game.SDLK_l)
+        self.assertEqual(self.player.demon_remaining, 0)
+        self.player.update(self.player.trigger_cooldown)
+        self.release(game.SDLK_l)
+        self.press(game.SDLK_l)
+        self.assertGreater(self.player.demon_remaining, 0)
 
     def test_opposite_and_alternative_movement_keys(self):
         self.press(game.SDLK_RIGHT)
