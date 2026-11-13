@@ -12,7 +12,8 @@ class CharacterTests(unittest.TestCase):
     def setUp(self):
         game.Character.images = None
         self.images = [Mock(w=1254, h=1254), Mock(w=1254, h=1254), Mock(w=2048, h=2560),
-                       Mock(w=2720, h=724), Mock(w=2172, h=724), Mock(w=1254, h=1254)]
+                       Mock(w=2720, h=724), Mock(w=2172, h=724), Mock(w=1254, h=1254),
+                       Mock(w=2172, h=724)]
         with patch.object(game, 'load_image', side_effect=self.images):
             self.player = game.Character()
 
@@ -154,6 +155,76 @@ class CharacterTests(unittest.TestCase):
         self.assertEqual(self.player.y, self.player.ground_y)
         self.player.update(0.3)
         self.assertEqual(self.player.state, 'IDLE')
+
+    def test_slam_waves_spread_from_landing_point_on_ground_and_platform(self):
+        for airborne in (False, True):
+            with self.subTest(airborne=airborne):
+                self.player = game.Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS)
+                landing_y = self.player.ground_y
+                if airborne:
+                    platform = min(Background.PLATFORMS, key=lambda p: p.top)
+                    self.player.x = platform.x
+                    self.press(game.SDLK_j)
+                    self.player.update(0.47)
+                    landing_y = platform.top
+                self.press(game.SDLK_k)
+                for _ in range(120):
+                    if self.player.frame == 2:
+                        break
+                    self.assertIsNone(self.player.slam_wave_origin)
+                    self.player.update(1 / 120)
+                self.assertEqual(self.player.slam_wave_origin, (self.player.x, landing_y))
+                origin_x = self.player.x
+                self.player.x += 20
+                last_offset = 0
+                for _ in range(3):
+                    self.player.update(0.1)
+                    self.player.draw()
+                    left, right = [call.args for call in
+                                   self.images[-1].clip_composite_draw.call_args_list[-2:]]
+                    self.assertEqual((left[5], right[5]), ('h', ''))
+                    offset = right[6] - origin_x
+                    self.assertAlmostEqual(origin_x - left[6], offset)
+                    self.assertGreater(offset, last_offset)
+                    last_offset = offset
+                self.player.update(0.3)
+                self.player.draw()
+                right = self.images[-1].clip_composite_draw.call_args.args
+                self.assertGreater(right[6] + right[8] / 2 - origin_x, 500)
+                self.assertGreater(right[8], 420)
+                self.assertGreater(right[9], 220)
+                self.player.update(0.13)
+                self.assertIsNone(self.player.slam_wave_origin)
+
+    def test_slam_wave_scales_with_actual_drop_to_landing_surface(self):
+        platform = max(Background.PLATFORMS, key=lambda p: p.top)
+
+        def wave_size(start_y, x):
+            self.player = game.Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS)
+            self.player.x, self.player.y = x, start_y
+            self.player.jump()
+            self.press(game.SDLK_k)
+            for _ in range(180):
+                self.player.update(1 / 120)
+                if self.player.slam_wave_origin is not None:
+                    break
+            self.assertIsNotNone(self.player.slam_wave_origin)
+            self.player.update(0.55)
+            self.player.draw()
+            right = self.images[-1].clip_composite_draw.call_args.args
+            return right[6] + right[8] / 2 - x, right[8], right[9]
+
+        gap_x = 555
+        low = wave_size(Background.GROUND_Y + 50, gap_x)
+        same_drop = wave_size(platform.top + 50, platform.x)
+        medium = wave_size(Background.GROUND_Y + 200, gap_x)
+        high = wave_size(Background.GROUND_Y + 520, gap_x)
+        capped = wave_size(Background.GROUND_Y + 700, gap_x)
+        self.assertEqual(low, same_drop)
+        for small, mid, large in zip(low, medium, high):
+            self.assertLess(small, mid)
+            self.assertLess(mid, large)
+        self.assertEqual(high, capped)
 
     def test_thrust_direction_bounds_and_input_lock(self):
         self.press(game.SDLK_LEFT)

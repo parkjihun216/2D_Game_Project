@@ -20,6 +20,8 @@ class Character:
     MORPH_TIME = 0.32
     DEMON_TIME = 5.0
     TRIGGER_COOLDOWN = 1.0
+    SLAM_WAVE_DURATION = 0.72
+    SLAM_FULL_POWER_DROP = 520.0
     # 이펙트 시트는 동작별 한 행, 동작 단계별 네 열입니다.
     FX_ROWS = {'ATTACK': 0, 'THRUST': 1, 'UPPERCUT': 2, 'SLAM': 3, 'JUMP': 4}
     FX_OPACITY = (0.26, 0.62, 0.86, 0.48)
@@ -74,6 +76,10 @@ class Character:
         self.platforms = platforms
         self.enemies = enemies
         self.shockwave = None
+        self.slam_wave_origin = None
+        self.slam_wave_age = 0.0
+        self.slam_peak_y = self.y
+        self.slam_wave_scale = 1.0
         self.velocity_y = 0.0
         self.canvas_width = canvas_width
         if Character.images is None:
@@ -84,6 +90,7 @@ class Character:
                 'morph': load_image('assets/dante/devil_trigger_transform_v2.png'),
                 'demon_run': load_image('assets/dante/demon_run.png'),
                 'shockwave': load_image('assets/dante/trigger_shockwave.png'),
+                'slam_wave': load_image('assets/dante/slam_ground_wave.png'),
             }
         self.frame = 0
         self.frame_elapsed = 0.0
@@ -126,12 +133,14 @@ class Character:
             self.face_dir = self.dir
 
     def start_ground_slam(self):
+        self.slam_peak_y = self.y
         self.velocity_y = 480.0
 
     def start_jump_fx(self):
         self.jump_fx = True
 
     def start_air_slam(self):
+        self.slam_peak_y = self.y
         self._set_frame(1)
         self.velocity_y = -900.0
 
@@ -208,6 +217,10 @@ class Character:
             remaining -= step
 
     def _update_step(self, dt):
+        if self.slam_wave_origin is not None:
+            self.slam_wave_age += dt
+            if self.slam_wave_age >= self.SLAM_WAVE_DURATION:
+                self.slam_wave_origin = None
         if self.state in ('IDLE', 'RUN'):
             self._sync_movement()
         self.frame_elapsed += dt
@@ -232,9 +245,14 @@ class Character:
 
         if self.state == 'SLAM':
             if self.frame in (0, 1):
+                self.slam_peak_y = max(self.slam_peak_y, self.y)
                 landed = self._apply_gravity(dt)
                 if landed:
                     self._set_frame(2)
+                    self.slam_wave_origin = (self.x, self.y)
+                    self.slam_wave_age = 0.0
+                    drop = self.slam_peak_y - self.y
+                    self.slam_wave_scale = 1.0 + min(drop / self.SLAM_FULL_POWER_DROP, 1.0)
                 elif self.frame == 0 and self.velocity_y <= 0:
                     self._set_frame(1)
                     self.velocity_y = -900.0
@@ -302,7 +320,24 @@ class Character:
                                   self.y + (foot_y - image.h / 2) * scale,
                                   width * scale, image.h * scale)
 
+    def _draw_slam_wave(self):
+        x, y = self.slam_wave_origin
+        progress = self.slam_wave_age / self.SLAM_WAVE_DURATION
+        scale = self.slam_wave_scale
+        front = (52 + 650 * progress) * scale
+        width = min(front, 420 * scale)
+        height = (100 + 120 * min(progress * 5, 1)) * scale
+        offset = front - width / 2
+        image = self.images['slam_wave']
+        image.opacify(min(1.0, (1 - progress) * 3))
+        # 원본에서 불꽃의 접지선은 아래에서 약 26% 지점입니다.
+        for direction in (-1, 1):
+            image.clip_composite_draw(0, 0, image.w, image.h, 0, 'h' if direction < 0 else '',
+                                      x + direction * offset, y + height * 0.24, width, height)
+
     def draw(self):
+        if self.slam_wave_origin is not None:
+            self._draw_slam_wave()
         if self.shockwave is not None:
             self.shockwave.draw(self.images['shockwave'])
         if self.demon_remaining > 0:
