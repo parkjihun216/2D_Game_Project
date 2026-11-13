@@ -4,13 +4,15 @@ from unittest.mock import Mock, patch
 
 import character as game
 from background import Background
+from ember_wisp import EmberWisp
+from trigger_shockwave import TriggerShockwave
 
 
 class CharacterTests(unittest.TestCase):
     def setUp(self):
         game.Character.images = None
         self.images = [Mock(w=1254, h=1254), Mock(w=1254, h=1254), Mock(w=2048, h=2560),
-                       Mock(w=2720, h=724), Mock(w=2172, h=724)]
+                       Mock(w=2720, h=724), Mock(w=2172, h=724), Mock(w=1254, h=1254)]
         with patch.object(game, 'load_image', side_effect=self.images):
             self.player = game.Character()
 
@@ -50,13 +52,45 @@ class CharacterTests(unittest.TestCase):
         self.player.draw()
         self.images[1].clip_composite_draw.assert_called_once()
         self.assertEqual(self.player.state, 'THRUST')
-        self.release(game.SDLK_l)
-        self.press(game.SDLK_l)
         self.assertEqual(self.player.demon_remaining, 0)
-        self.player.update(self.player.trigger_cooldown)
+
+    def test_devil_trigger_can_be_recast_after_one_second(self):
+        self.press(game.SDLK_l)
+        for _ in range(59):
+            self.player.update(1 / 60)
         self.release(game.SDLK_l)
         self.press(game.SDLK_l)
-        self.assertGreater(self.player.demon_remaining, 0)
+        self.assertIsNone(self.player.shockwave)
+        self.player.update(1 / 60)
+        self.release(game.SDLK_l)
+        self.press(game.SDLK_l)
+        self.assertIsNotNone(self.player.shockwave)
+        self.assertEqual(self.player.trigger_cooldown, 1.0)
+
+    def test_transform_wave_hits_each_nearby_enemy_once_at_cast_location(self):
+        x, y = self.player.x, self.player.y + 90
+        reach = TriggerShockwave.RADIUS + EmberWisp.HIT_RADIUS
+        enemies = [EmberWisp(None, x + dx, y + dy)
+                   for dx, dy in ((-80, 0), (0, reach), (reach + 1, 0))]
+        self.player.enemies = enemies
+        self.press(game.SDLK_l)
+        self.player.x += 500
+        self.player.update(0.05)
+        self.assertEqual([e.health for e in enemies], [60, 100, 100])
+        self.release(game.SDLK_l)
+        self.press(game.SDLK_l)
+        self.player.update(0.4)
+        self.assertEqual([e.health for e in enemies], [60, 60, 100])
+        enemies[2].x = x
+        self.player.update(1)
+        self.assertIsNone(self.player.shockwave)
+        self.assertEqual([e.health for e in enemies], [60, 60, 100])
+        self.player.update(self.player.trigger_cooldown)
+        self.player.x = x
+        self.release(game.SDLK_l)
+        self.press(game.SDLK_l)
+        self.player.update(1)
+        self.assertEqual([e.health for e in enemies], [20, 20, 60])
 
     def test_opposite_and_alternative_movement_keys(self):
         self.press(game.SDLK_RIGHT)

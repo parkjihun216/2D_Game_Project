@@ -1,11 +1,12 @@
 from pico2d import (
     get_events, SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE,
     SDL_PumpEvents, SDL_HasEvent,
-    clear_canvas, update_canvas,
+    clear_canvas, update_canvas, load_image,
 )
 from background import Background
 from character import Character
 from lava_torrent import LavaTorrent
+from ember_wisp import EmberWisp
 import game_world
 
 
@@ -17,7 +18,12 @@ def init():
     global character, running
     game_world.clear()
     game_world.add_object(Background(), 0)
-    character = Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS)
+    wisp_image = load_image('assets/ember_wisp.png')
+    enemies = [EmberWisp(wisp_image, x, y) for x, y in ((760, 360), (1170, 360), (1510, 625))]
+    for enemy in enemies:
+        game_world.add_object(enemy, 1)
+    character = Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS,
+                          enemies=enemies)
     game_world.add_object(character, 1)
     game_world.add_object(LavaTorrent(character), 1)
     running = True

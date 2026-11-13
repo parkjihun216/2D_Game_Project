@@ -4,6 +4,7 @@ from pico2d import (
 )
 
 from transitions import Machine
+from trigger_shockwave import TriggerShockwave
 
 
 class Character:
@@ -18,7 +19,7 @@ class Character:
     JUMP_SPEED = 650.0
     MORPH_TIME = 0.32
     DEMON_TIME = 5.0
-    TRIGGER_COOLDOWN = 30.0
+    TRIGGER_COOLDOWN = 1.0
     # 이펙트 시트는 동작별 한 행, 동작 단계별 네 열입니다.
     FX_ROWS = {'ATTACK': 0, 'THRUST': 1, 'UPPERCUT': 2, 'SLAM': 3, 'JUMP': 4}
     FX_OPACITY = (0.26, 0.62, 0.86, 0.48)
@@ -67,10 +68,12 @@ class Character:
          'dest': 'IDLE'},
     ]
 
-    def __init__(self, canvas_width=1920, ground_y=465.0, platforms=()):
+    def __init__(self, canvas_width=1920, ground_y=465.0, platforms=(), enemies=()):
         self.x, self.y = canvas_width / 2, ground_y
         self.ground_y = self.y
         self.platforms = platforms
+        self.enemies = enemies
+        self.shockwave = None
         self.velocity_y = 0.0
         self.canvas_width = canvas_width
         if Character.images is None:
@@ -80,6 +83,7 @@ class Character:
                 'fx': load_image('assets/dante/demon_skill_fx.png'),
                 'morph': load_image('assets/dante/devil_trigger_transform_v2.png'),
                 'demon_run': load_image('assets/dante/demon_run.png'),
+                'shockwave': load_image('assets/dante/trigger_shockwave.png'),
             }
         self.frame = 0
         self.frame_elapsed = 0.0
@@ -172,9 +176,10 @@ class Character:
                 self.uppercut()
             elif event.key == SDLK_k:
                 self.slam()
-            elif event.key == SDLK_l and self.trigger_cooldown == 0:
+            elif event.key == SDLK_l and self.trigger_cooldown <= 1e-10:
                 self.demon_remaining = self.MORPH_TIME + self.DEMON_TIME
                 self.trigger_cooldown = self.TRIGGER_COOLDOWN
+                self.shockwave = TriggerShockwave(self.x, self.y + 90, self.enemies)
 
     def _move_x(self, distance):
         margin = 130 * self.DRAW_SCALE
@@ -193,6 +198,8 @@ class Character:
     def update(self, delta_time):
         # 짧은 고정 간격으로 계산해 낮은 FPS에서도 바닥 관통을 방지합니다.
         remaining = max(0.0, delta_time)
+        if self.shockwave is not None and self.shockwave.update(remaining):
+            self.shockwave = None
         self.demon_remaining = max(0.0, self.demon_remaining - remaining)
         self.trigger_cooldown = max(0.0, self.trigger_cooldown - remaining)
         while remaining > 1e-10:
@@ -296,6 +303,8 @@ class Character:
                                   width * scale, image.h * scale)
 
     def draw(self):
+        if self.shockwave is not None:
+            self.shockwave.draw(self.images['shockwave'])
         if self.demon_remaining > 0:
             self._draw_demon()
             return
