@@ -18,6 +18,8 @@ running = False
 
 def init():
     global character, hud, running
+    if hud is not None:
+        hud.close()
     game_world.clear()
     game_world.add_object(Background(), 0)
     wisp_image = load_image('assets/ember_wisp.png')
@@ -65,6 +67,8 @@ def finish():
     global character, hud, running
     game_world.clear()
     character = None
+    if hud is not None:
+        hud.close()
     hud = None
     Character.images = None
     running = False
