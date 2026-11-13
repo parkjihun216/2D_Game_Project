@@ -11,6 +11,7 @@ class PlayerHUD:
     WIDTH = 500
     MARGIN = 20
     ROUND_SECONDS = 180
+    TOTAL_STAGES = 3
     # 원본 PNG에서 실제 색이 채워지는 가로 구간입니다.
     HP_TRACK = (420, 1967)
     L_TRACK = (426, 1954)
@@ -21,21 +22,27 @@ class PlayerHUD:
         self.trigger = load_image('assets/hud/devil_trigger_fill.png')
         font_path = files('pico2d').joinpath('data', 'ConsolaMalgun.ttf')
         self.timer_font = load_font(str(font_path), 42)
+        self.stage_font = load_font(str(font_path), 22)
+        self.stage = 1
         self.deadline = monotonic() + self.ROUND_SECONDS
 
     def close(self):
         TTF_CloseFont(self.timer_font.font)
+        TTF_CloseFont(self.stage_font.font)
 
-    def _draw_timer(self):
+    def _draw_round_status(self):
         remaining = max(0, ceil(self.deadline - monotonic()))
         minutes, seconds = divmod(remaining, 60)
         right = get_canvas_width() - self.MARGIN
         top = get_canvas_height() - self.MARGIN
         left, bottom = right - 132, top - 60
-        draw_rectangle(left, bottom, right, top, 28, 23, 26, filled=True)
-        draw_rectangle(left, bottom, right, top, 157, 145, 132)
+        draw_rectangle(left, bottom - 33, right, top, 28, 23, 26, filled=True)
+        draw_rectangle(left, bottom - 33, right, top, 157, 145, 132)
+        draw_rectangle(left + 7, bottom, right - 7, bottom, 102, 81, 76, filled=True)
         self.timer_font.draw(left + 20, (top + bottom) / 2,
                              f'{minutes}:{seconds:02d}', (249, 235, 215))
+        self.stage_font.draw(left + 14, bottom - 16, f'단계 {self.stage}/{self.TOTAL_STAGES}',
+                             (232, 212, 186))
 
     def draw(self, player):
         scale = self.WIDTH / self.frame.w
@@ -49,4 +56,4 @@ class PlayerHUD:
             if width:
                 x = self.MARGIN + (left + width / 2) * scale
                 image.clip_draw(left, 0, width, image.h, x, y, width * scale, height)
-        self._draw_timer()
+        self._draw_round_status()
