@@ -43,6 +43,7 @@ class Character:
         {'trigger': 'stop_run', 'source': 'RUN', 'dest': 'IDLE'},
         {'trigger': 'attack', 'source': ['IDLE', 'RUN'], 'dest': 'ATTACK'},
         {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP'},
+        {'trigger': 'fall', 'source': ['RUN', 'THRUST'], 'dest': 'JUMP'},
         {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
         {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
         {'trigger': 'slam', 'source': ['IDLE', 'RUN'], 'dest': 'SLAM',
@@ -57,9 +58,10 @@ class Character:
          'dest': 'IDLE'},
     ]
 
-    def __init__(self, canvas_width=1920, ground_y=465.0):
+    def __init__(self, canvas_width=1920, ground_y=465.0, platforms=()):
         self.x, self.y = canvas_width / 2, ground_y
         self.ground_y = self.y
+        self.platforms = platforms
         self.velocity_y = 0.0
         self.canvas_width = canvas_width
         if Character.images is None:
@@ -93,7 +95,11 @@ class Character:
         return self.dir != 0
 
     def is_airborne(self):
-        return self.y > self.ground_y
+        return self.y > self._surface_below()
+
+    def _surface_below(self):
+        return max((p.top for p in self.platforms if p.top <= self.y and p.supports(self.x)),
+                   default=self.ground_y)
 
     def face_movement(self):
         if self.dir != 0:
@@ -153,10 +159,11 @@ class Character:
         self.x = max(margin, min(self.canvas_width - margin, self.x + distance))
 
     def _apply_gravity(self, dt):
+        surface = self._surface_below()
         self.y += self.velocity_y * dt - 0.5 * self.GRAVITY * dt * dt
         self.velocity_y -= self.GRAVITY * dt
-        if self.y <= self.ground_y:
-            self.y = self.ground_y
+        if self.y <= surface:
+            self.y = surface
             self.velocity_y = 0.0
             return True
         return False
@@ -211,6 +218,11 @@ class Character:
             self._move_x(self.dir * self.MOVE_SPEED * dt)
         elif self.state == 'THRUST' and self.frame in (1, 2):
             self._move_x(self.face_dir * 720.0 * dt)
+
+        if self.state in ('RUN', 'THRUST') and self.is_airborne():
+            self.fall()
+            self._set_frame(2)
+            return
 
         if self.frame_elapsed + 1e-10 >= interval:
             self.frame_elapsed -= interval

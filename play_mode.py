@@ -17,7 +17,7 @@ def init():
     global character, running
     game_world.clear()
     game_world.add_object(Background(), 0)
-    character = Character(ground_y=Background.GROUND_Y)
+    character = Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS)
     game_world.add_object(character, 1)
     game_world.add_object(LavaTorrent(character), 1)
     running = True

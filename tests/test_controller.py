@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import character as game
+from background import Background
 
 
 class CharacterTests(unittest.TestCase):
@@ -115,6 +116,51 @@ class CharacterTests(unittest.TestCase):
         self.assertGreater(self.player.x, start_x)
         self.assertEqual(self.player.y, self.player.ground_y)
         self.assertEqual(self.player.state, 'RUN')
+
+    def test_both_platform_routes_are_reachable_from_spawn(self):
+        for side in (-1, 1):
+            with self.subTest(side=side):
+                self.player = game.Character(ground_y=Background.GROUND_Y,
+                                             platforms=Background.PLATFORMS)
+                route = sorted((p for p in self.player.platforms
+                                if (p.x - self.player.x) * side >= 0),
+                               key=lambda p: p.top)
+                for index, platform in enumerate(route):
+                    direction = 1 if platform.x > self.player.x else -1
+                    key = game.SDLK_RIGHT if direction == 1 else game.SDLK_LEFT
+                    self.press(key)
+                    if index:
+                        previous = route[index - 1]
+                        takeoff_x = previous.x + direction * previous.width * 0.40
+                        run_time = (takeoff_x - self.player.x) * direction / self.player.MOVE_SPEED
+                        self.player.update(run_time)
+                        self.assertEqual(self.player.y, previous.top)
+                    self.press(game.SDLK_j)
+                    self.release(game.SDLK_j)
+                    self.player.update(0.90)
+                    self.assertEqual((self.player.y, self.player.state), (platform.top, 'RUN'))
+                    self.release(key)
+                self.assertEqual((route[-1].x, self.player.y), (960, 720))
+                self.press(game.SDLK_j)
+                self.player.update(0.49)
+                top = self.player.y + self.player.PIVOTS['JUMP'][self.player.frame][1] * self.player.DRAW_SCALE
+                self.assertLess(top, 1080)
+
+    def test_walk_off_platform_and_slam_back_to_bridge(self):
+        self.player = game.Character(ground_y=Background.GROUND_Y,
+                                     platforms=Background.PLATFORMS)
+        low = min(self.player.platforms, key=lambda p: p.top)
+        self.player.x = low.x
+        self.press(game.SDLK_j)
+        self.player.update(1)
+        self.assertEqual(self.player.y, low.top)
+        self.press(game.SDLK_RIGHT)
+        self.player.update(0.42)
+        self.assertEqual(self.player.state, 'JUMP')
+        self.press(game.SDLK_k)
+        self.assertEqual(self.player.state, 'SLAM')
+        self.player.update(1)
+        self.assertEqual(self.player.y, Background.GROUND_Y)
 
     def test_all_frames_and_directions_fit_selected_sheet(self):
         for state, animation in self.player.ANIMATIONS.items():
