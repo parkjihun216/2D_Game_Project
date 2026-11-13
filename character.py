@@ -57,8 +57,8 @@ class Character:
          'dest': 'IDLE'},
     ]
 
-    def __init__(self, canvas_width=1920):
-        self.x, self.y = canvas_width / 2, 465.0
+    def __init__(self, canvas_width=1920, ground_y=465.0):
+        self.x, self.y = canvas_width / 2, ground_y
         self.ground_y = self.y
         self.velocity_y = 0.0
         self.canvas_width = canvas_width

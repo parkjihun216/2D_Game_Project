@@ -31,10 +31,11 @@ class PlayModeTests(unittest.TestCase):
                                 'background draw', 'character draw'])
 
     def test_mode_lifecycle_does_not_duplicate_objects(self):
-        with patch.object(play_mode, 'Background'), patch.object(play_mode, 'Character'):
+        with patch.object(play_mode, 'Background'), patch.object(play_mode, 'Character'), \
+                patch.object(play_mode, 'LavaTorrent'):
             play_mode.init()
             play_mode.init()
-            self.assertEqual([len(layer) for layer in game_world.world], [1, 1])
+            self.assertEqual([len(layer) for layer in game_world.world], [1, 2])
             self.assertTrue(play_mode.running)
             play_mode.finish()
         self.assertEqual(game_world.world, [[], []])

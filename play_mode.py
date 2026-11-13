@@ -5,6 +5,7 @@ from pico2d import (
 )
 from background import Background
 from character import Character
+from lava_torrent import LavaTorrent
 import game_world
 
 
@@ -16,8 +17,9 @@ def init():
     global character, running
     game_world.clear()
     game_world.add_object(Background(), 0)
-    character = Character()
+    character = Character(ground_y=Background.GROUND_Y)
     game_world.add_object(character, 1)
+    game_world.add_object(LavaTorrent(character), 1)
     running = True
 
 
