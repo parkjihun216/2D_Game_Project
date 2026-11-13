@@ -28,6 +28,16 @@ class CharacterTests(unittest.TestCase):
         self.assertIs(second.images, self.player.images)
         self.assertIsNot(second.machine, self.player.machine)
 
+    def test_opposite_and_alternative_movement_keys(self):
+        self.press(game.SDLK_RIGHT)
+        self.press(game.SDLK_d)
+        self.release(game.SDLK_RIGHT)
+        self.assertEqual((self.player.dir, self.player.state), (1, 'RUN'))
+        self.press(game.SDLK_LEFT)
+        self.assertEqual((self.player.dir, self.player.state), (0, 'IDLE'))
+        self.release(game.SDLK_d)
+        self.assertEqual((self.player.dir, self.player.face_dir), (-1, -1))
+
     def test_jump_lands_and_cannot_restart_in_air(self):
         self.press(game.SDLK_j)
         self.player.update(0.3)
