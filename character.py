@@ -166,11 +166,9 @@ class Character:
 
         if self.frame_elapsed + 1e-10 >= interval:
             self.frame_elapsed -= interval
-            self.frame += 1
-            if self.frame == 4:
-                self.frame = 0
-                if self.state not in ('IDLE', 'RUN'):
-                    self._sync_movement()
+            self.frame = (self.frame + 1) % 4
+            if self.frame == 0 and self.state not in ('IDLE', 'RUN'):
+                self._sync_movement()
 
     def draw(self):
         animation = self.ANIMATIONS[self.state]
