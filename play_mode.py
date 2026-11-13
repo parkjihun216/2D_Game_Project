@@ -7,15 +7,17 @@ from background import Background
 from character import Character
 from lava_torrent import LavaTorrent
 from ember_wisp import EmberWisp
+from hud import PlayerHUD
 import game_world
 
 
 character = None
+hud = None
 running = False
 
 
 def init():
-    global character, running
+    global character, hud, running
     game_world.clear()
     game_world.add_object(Background(), 0)
     wisp_image = load_image('assets/ember_wisp.png')
@@ -26,6 +28,7 @@ def init():
                           enemies=enemies)
     game_world.add_object(character, 1)
     game_world.add_object(LavaTorrent(character), 1)
+    hud = PlayerHUD()
     running = True
 
 
@@ -54,12 +57,14 @@ def update(delta_time):
 def draw():
     clear_canvas()
     game_world.render()
+    hud.draw(character)
     update_canvas()
 
 
 def finish():
-    global character, running
+    global character, hud, running
     game_world.clear()
     character = None
+    hud = None
     Character.images = None
     running = False

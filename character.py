@@ -18,7 +18,8 @@ class Character:
     GRAVITY = 1800.0
     JUMP_SPEED = 650.0
     MORPH_TIME = 0.32
-    DEMON_TIME = 5.0
+    DEMON_TIME = 30.0
+    MAX_HEALTH = 100
     TRIGGER_COOLDOWN = 1.0
     SLAM_WAVE_DURATION = 0.72
     SLAM_FULL_POWER_DROP = 520.0
@@ -75,6 +76,7 @@ class Character:
         self.ground_y = self.y
         self.platforms = platforms
         self.enemies = enemies
+        self.health = self.MAX_HEALTH
         self.shockwave = None
         self.slam_wave_origin = None
         self.slam_wave_age = 0.0

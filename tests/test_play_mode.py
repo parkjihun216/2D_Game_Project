@@ -32,7 +32,8 @@ class PlayModeTests(unittest.TestCase):
 
     def test_mode_lifecycle_does_not_duplicate_objects(self):
         with patch.object(play_mode, 'Background'), patch.object(play_mode, 'Character'), \
-                patch.object(play_mode, 'LavaTorrent'), patch.object(play_mode, 'load_image'):
+                patch.object(play_mode, 'LavaTorrent'), patch.object(play_mode, 'load_image'), \
+                patch.object(play_mode, 'PlayerHUD'):
             play_mode.init()
             play_mode.init()
             self.assertEqual([len(layer) for layer in game_world.world], [1, 5])
@@ -40,6 +41,17 @@ class PlayModeTests(unittest.TestCase):
             play_mode.finish()
         self.assertEqual(game_world.world, [[], []])
         self.assertIsNone(play_mode.character)
+        self.assertIsNone(play_mode.hud)
+
+    def test_hud_draws_after_world_before_present(self):
+        calls = Mock()
+        with patch.object(play_mode, 'clear_canvas', calls.clear), \
+                patch.object(game_world, 'render', calls.world), \
+                patch.object(play_mode, 'hud', calls.hud), \
+                patch.object(play_mode, 'update_canvas', calls.present):
+            play_mode.draw()
+        self.assertEqual([call[0] for call in calls.mock_calls],
+                         ['clear', 'world', 'hud.draw', 'present'])
 
     def test_keyboard_forwarding_and_escape(self):
         player = Mock()
