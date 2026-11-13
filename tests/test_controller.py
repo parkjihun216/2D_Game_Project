@@ -91,7 +91,7 @@ class CharacterTests(unittest.TestCase):
             for frame in range(4):
                 self.player.frame = frame
                 for direction in (-1, 1):
-                    self.player.facing = direction
+                    self.player.face_dir = direction
                     self.player.draw()
                     image = self.images[animation['sheet'] - 1]
                     left, bottom, width, height, _, flip, *_ = (

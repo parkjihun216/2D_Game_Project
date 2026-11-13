@@ -3,6 +3,8 @@ from pico2d import (
     SDLK_a, SDLK_d, SDLK_u, SDLK_i, SDLK_o, SDLK_k, SDLK_j, load_image,
 )
 
+from transitions import Machine
+
 
 class Character:
     # LEC 12: 같은 클래스의 객체들이 이미지를 한 번만 로딩해 공유합니다.
@@ -34,9 +36,26 @@ class Character:
         'UPPERCUT': ((155, 273), (150, 271), (150, 270), (150, 272)),
         'SLAM': ((160, 224), (160, 230), (150, 263), (150, 264)),
     }
-    LEFT_KEYS = (SDLK_LEFT, SDLK_a)
-    RIGHT_KEYS = (SDLK_RIGHT, SDLK_d)
-    SKILL_KEYS = {SDLK_u: 'ATTACK', SDLK_i: 'THRUST', SDLK_o: 'UPPERCUT'}
+    # LEC 12~13: 이벤트(trigger)에 따라 상태가 바뀌는 전이 표.
+    STATES = ['IDLE', 'RUN', 'ATTACK', 'JUMP', 'THRUST', 'UPPERCUT', 'SLAM']
+    TRANSITIONS = [
+        {'trigger': 'start_run', 'source': 'IDLE', 'dest': 'RUN'},
+        {'trigger': 'stop_run', 'source': 'RUN', 'dest': 'IDLE'},
+        {'trigger': 'attack', 'source': ['IDLE', 'RUN'], 'dest': 'ATTACK'},
+        {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP'},
+        {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
+        {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
+        {'trigger': 'slam', 'source': ['IDLE', 'RUN'], 'dest': 'SLAM',
+         'after': 'start_ground_slam'},
+        {'trigger': 'slam', 'source': 'JUMP', 'dest': 'SLAM',
+         'conditions': 'is_airborne', 'after': 'start_air_slam'},
+        {'trigger': 'finish_action',
+         'source': ['ATTACK', 'JUMP', 'THRUST', 'UPPERCUT', 'SLAM'],
+         'dest': 'RUN', 'conditions': 'is_moving', 'after': 'face_movement'},
+        {'trigger': 'finish_action',
+         'source': ['ATTACK', 'JUMP', 'THRUST', 'UPPERCUT', 'SLAM'],
+         'dest': 'IDLE'},
+    ]
 
     def __init__(self, canvas_width=1920):
         self.x, self.y = canvas_width / 2, 465.0
@@ -48,57 +67,86 @@ class Character:
                 1: load_image('character1.png'),
                 2: load_image('character2.png'),
             }
-        self.state = 'IDLE'
         self.frame = 0
         self.frame_elapsed = 0.0
-        self.facing = 1
-        self.held_keys = set()
+        self.face_dir = 1
+        self.dir = 0
+        self.pressed_keys = []
+        self.machine = Machine(
+            model=self,
+            states=self.STATES,
+            transitions=self.TRANSITIONS,
+            initial='IDLE',
+            auto_transitions=False,
+            ignore_invalid_triggers=True,
+            before_state_change='reset_animation',
+        )
 
-    @property
-    def move_direction(self):
-        return (int(any(key in self.held_keys for key in self.RIGHT_KEYS))
-                - int(any(key in self.held_keys for key in self.LEFT_KEYS)))
-
-    def _set_state(self, state):
-        if self.state != state:
-            self.state = state
-            self._set_frame(0)
+    def reset_animation(self):
+        self._set_frame(0)
 
     def _set_frame(self, frame):
         self.frame = frame
         self.frame_elapsed = 0.0
 
+    def is_moving(self):
+        return self.dir != 0
+
+    def is_airborne(self):
+        return self.y > self.ground_y
+
+    def face_movement(self):
+        if self.dir != 0:
+            self.face_dir = self.dir
+
+    def start_ground_slam(self):
+        self.velocity_y = 480.0
+
+    def start_air_slam(self):
+        self._set_frame(1)
+        self.velocity_y = -900.0
+
+    def read_direction(self):
+        # LEC 10: 입력에서는 이동 방향만 기록하고, 실제 이동은 update에서 합니다.
+        right = SDLK_RIGHT in self.pressed_keys or SDLK_d in self.pressed_keys
+        left = SDLK_LEFT in self.pressed_keys or SDLK_a in self.pressed_keys
+        self.dir = int(right) - int(left)
+
     def _sync_movement(self):
-        direction = self.move_direction
-        if direction:
-            self.facing = direction
-        self._set_state('RUN' if direction else 'IDLE')
+        self.face_movement()
+        if self.state == 'IDLE' and self.dir != 0:
+            self.start_run()
+        elif self.state == 'RUN' and self.dir == 0:
+            self.stop_run()
 
     def handle_event(self, event):
+        if event.type not in (SDL_KEYDOWN, SDL_KEYUP):
+            return
         if event.type == SDL_KEYUP:
-            self.held_keys.discard(event.key)
-        elif event.type == SDL_KEYDOWN:
-            first_press = event.key not in self.held_keys
-            self.held_keys.add(event.key)
-            if first_press:
-                if self.state in ('IDLE', 'RUN'):
-                    self._sync_movement()
-                    if event.key == SDLK_j:
-                        self._set_state('JUMP')
-                    elif event.key == SDLK_k:
-                        # 지상에서 누르면 짧게 도약한 뒤 내려찍습니다.
-                        self._set_state('SLAM')
-                        self.velocity_y = 480.0
-                    elif event.key in self.SKILL_KEYS:
-                        self._set_state(self.SKILL_KEYS[event.key])
-                elif (self.state == 'JUMP' and self.frame in (1, 2)
-                      and event.key == SDLK_k):
-                    # 점프 중에는 곧바로 하강 공격으로 연결합니다.
-                    self._set_state('SLAM')
-                    self._set_frame(1)
-                    self.velocity_y = -900.0
+            if event.key in self.pressed_keys:
+                self.pressed_keys.remove(event.key)
+        else:
+            # 운영체제의 키 반복 이벤트는 새로운 공격으로 처리하지 않습니다.
+            if event.key in self.pressed_keys:
+                return
+            self.pressed_keys.append(event.key)
+
+        self.read_direction()
         if self.state in ('IDLE', 'RUN'):
             self._sync_movement()
+
+        if event.type == SDL_KEYDOWN:
+            # 허용되는 출발 상태는 위 TRANSITIONS에서 결정합니다.
+            if event.key == SDLK_u:
+                self.attack()
+            elif event.key == SDLK_j:
+                self.jump()
+            elif event.key == SDLK_i:
+                self.thrust()
+            elif event.key == SDLK_o:
+                self.uppercut()
+            elif event.key == SDLK_k:
+                self.slam()
 
     def _move_x(self, distance):
         margin = 130 * self.DRAW_SCALE
@@ -133,15 +181,15 @@ class Character:
                     self._set_frame(1)
                     self.velocity_y = self.JUMP_SPEED
             elif self.frame in (1, 2):
-                if self.move_direction:
-                    self.facing = self.move_direction
-                    self._move_x(self.move_direction * self.MOVE_SPEED * dt)
+                if self.dir:
+                    self.face_dir = self.dir
+                    self._move_x(self.dir * self.MOVE_SPEED * dt)
                 if self._apply_gravity(dt):
                     self._set_frame(3)
                 elif self.velocity_y <= 0:
                     self.frame = 2
             elif self.frame_elapsed + 1e-10 >= interval:
-                self._sync_movement()
+                self.finish_action()
             return
 
         if self.state == 'SLAM':
@@ -156,21 +204,22 @@ class Character:
                 if self.frame == 2:
                     self._set_frame(3)
                 else:
-                    self._sync_movement()
+                    self.finish_action()
             return
 
         if self.state == 'RUN':
-            self._move_x(self.move_direction * self.MOVE_SPEED * dt)
+            self._move_x(self.dir * self.MOVE_SPEED * dt)
         elif self.state == 'THRUST' and self.frame in (1, 2):
-            self._move_x(self.facing * 720.0 * dt)
+            self._move_x(self.face_dir * 720.0 * dt)
 
         if self.frame_elapsed + 1e-10 >= interval:
             self.frame_elapsed -= interval
             self.frame = (self.frame + 1) % 4
             if self.frame == 0 and self.state not in ('IDLE', 'RUN'):
-                self._sync_movement()
+                self.finish_action()
 
     def draw(self):
+        # LEC 08: action(행)과 frame(열)로 사각형을 선택합니다.
         animation = self.ANIMATIONS[self.state]
         image = self.images[animation['sheet']]
         row = animation['row']
@@ -178,7 +227,7 @@ class Character:
         top, bottom = self.CELL_EDGES[row:row + 2]
         pivot_x, pivot_y = self.PIVOTS[self.state][self.frame]
         width, height = right - left, bottom - top
-        draw_x = self.x + (width / 2 - pivot_x) * self.DRAW_SCALE * self.facing
+        draw_x = self.x + (width / 2 - pivot_x) * self.DRAW_SCALE * self.face_dir
         draw_y = self.y + (pivot_y - height / 2) * self.DRAW_SCALE
         scale_x = image.w / self.SHEET_WIDTH
         scale_y = image.h / self.SHEET_HEIGHT
@@ -187,6 +236,6 @@ class Character:
         image.clip_composite_draw(
             source_left, image.h - source_bottom,
             source_right - source_left, source_bottom - source_top,
-            0, 'h' if self.facing < 0 else '', draw_x, draw_y,
+            0, 'h' if self.face_dir < 0 else '', draw_x, draw_y,
             width * self.DRAW_SCALE, height * self.DRAW_SCALE,
         )
