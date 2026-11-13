@@ -7,9 +7,13 @@ import character as game
 
 class CharacterTests(unittest.TestCase):
     def setUp(self):
+        game.Character.images = None
         self.images = [Mock(w=1254, h=1254), Mock(w=1254, h=1254)]
         with patch.object(game, 'load_image', side_effect=self.images):
             self.player = game.Character()
+
+    def tearDown(self):
+        game.Character.images = None
 
     def press(self, key):
         self.player.handle_event(SimpleNamespace(type=game.SDL_KEYDOWN, key=key))

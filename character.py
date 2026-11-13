@@ -5,6 +5,9 @@ from pico2d import (
 
 
 class Character:
+    # LEC 12: 같은 클래스의 객체들이 이미지를 한 번만 로딩해 공유합니다.
+    images = None
+
     SHEET_WIDTH = SHEET_HEIGHT = 1254
     CELL_EDGES = (0, 314, 627, 941, 1254)
     DRAW_SCALE = 0.8
@@ -40,7 +43,11 @@ class Character:
         self.ground_y = self.y
         self.velocity_y = 0.0
         self.canvas_width = canvas_width
-        self.images = {1: load_image('character1.png'), 2: load_image('character2.png')}
+        if Character.images is None:
+            Character.images = {
+                1: load_image('character1.png'),
+                2: load_image('character2.png'),
+            }
         self.state = 'idle'
         self.frame = 0
         self.frame_elapsed = 0.0
