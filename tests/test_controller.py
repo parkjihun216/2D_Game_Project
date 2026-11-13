@@ -21,6 +21,13 @@ class CharacterTests(unittest.TestCase):
     def release(self, key):
         self.player.handle_event(SimpleNamespace(type=game.SDL_KEYUP, key=key))
 
+    def test_images_are_shared_between_characters(self):
+        with patch.object(game, 'load_image') as load:
+            second = game.Character()
+        load.assert_not_called()
+        self.assertIs(second.images, self.player.images)
+        self.assertIsNot(second.machine, self.player.machine)
+
     def test_jump_lands_and_cannot_restart_in_air(self):
         self.press(game.SDLK_j)
         self.player.update(0.3)
