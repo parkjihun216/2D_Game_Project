@@ -45,6 +45,13 @@ class CharacterTests(unittest.TestCase):
         self.player.update(0.5)
         self.assertEqual((self.player.state, self.player.face_dir), ('RUN', -1))
 
+    def test_slam_during_jump_preparation_does_not_interrupt(self):
+        self.press(game.SDLK_j)
+        self.press(game.SDLK_k)
+        self.assertEqual((self.player.state, self.player.frame), ('JUMP', 0))
+        self.player.update(1.5)
+        self.assertEqual(self.player.state, 'IDLE')
+
     def test_jump_lands_and_cannot_restart_in_air(self):
         self.press(game.SDLK_j)
         self.player.update(0.3)
