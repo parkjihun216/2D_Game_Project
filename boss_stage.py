@@ -42,7 +42,7 @@ class VergilIntro:
         if not texture:
             raise RuntimeError('버질 컷신의 영상 텍스처를 만들 수 없습니다.')
         self.image = canvas.Image(texture)
-        if canvas.audio_on:
+        if canvas.audio_on and not self.transformation:
             self.sound = load_wav(self.asset + '.wav')
             self.channel = canvas.Mix_PlayChannel(-1, self.sound.wav, 0)
 
