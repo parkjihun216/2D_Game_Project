@@ -196,6 +196,40 @@ class CharacterTests(unittest.TestCase):
                 self.player.update(0.13)
                 self.assertIsNone(self.player.slam_wave_origin)
 
+    def test_k_wave_hits_each_enemy_once_when_it_reaches_them(self):
+        p = self.player
+        near, left, right, far, above = p.enemies = [
+            EmberWisp(None, p.x + dx, p.y + dy)
+            for dx, dy in ((50, 50), (-500, 50), (500, 50), (900, 50), (500, 250))
+        ]
+        for attack in (1, 2):
+            initial = near.MAX_HEALTH - (attack - 1) * p.SLAM_DAMAGE
+            self.press(game.SDLK_k)
+            self.release(game.SDLK_k)
+            p.update(0.45)
+            self.assertEqual(near.health, initial - p.SLAM_DAMAGE)
+            self.assertEqual((left.health, right.health), (initial, initial))
+            p.update(0.55)
+            self.assertEqual(p.state, 'IDLE')
+            self.assertEqual([enemy.health for enemy in (near, left, right)],
+                             [initial - p.SLAM_DAMAGE] * 3)
+            p.update(0.4)
+            self.assertIsNone(p.slam_wave_origin)
+            self.assertEqual((far.health, above.health), (far.MAX_HEALTH, above.MAX_HEALTH))
+
+    def test_high_drop_wave_hits_at_platform_height(self):
+        platform = max(Background.PLATFORMS, key=lambda p: p.top)
+        p = self.player = game.Character(ground_y=Background.GROUND_Y, platforms=(platform,))
+        p.x, p.y = platform.x, platform.top + p.SLAM_FULL_POWER_DROP
+        target = EmberWisp(None, p.x + 900, platform.top + 40)
+        below = EmberWisp(None, target.x, platform.top - 100)
+        p.enemies = [target, below]
+        p.jump()
+        self.press(game.SDLK_k)
+        p.update(1.5)
+        self.assertEqual(target.health, target.MAX_HEALTH - p.SLAM_DAMAGE)
+        self.assertEqual(below.health, below.MAX_HEALTH)
+
     def test_slam_wave_scales_with_actual_drop_to_landing_surface(self):
         platform = max(Background.PLATFORMS, key=lambda p: p.top)
 

@@ -22,6 +22,7 @@ class Character:
     MAX_HEALTH = 100
     TRIGGER_COOLDOWN = 1.0
     SLAM_WAVE_DURATION = 0.72
+    SLAM_DAMAGE = 38
     SLAM_FULL_POWER_DROP = 520.0
     # 이펙트 시트는 동작별 한 행, 동작 단계별 네 열입니다.
     FX_ROWS = {'ATTACK': 0, 'THRUST': 1, 'UPPERCUT': 2, 'SLAM': 3, 'JUMP': 4}
@@ -82,6 +83,7 @@ class Character:
         self.shockwave = None
         self.slam_wave_origin = None
         self.slam_wave_age = 0.0
+        self.slam_hits = set()
         self.slam_peak_y = self.y
         self.slam_wave_scale = 1.0
         self.velocity_y = 0.0
@@ -124,14 +126,14 @@ class Character:
             self.health = max(0, self.health - amount)
             self.hurt_remaining = 0.65
 
-    def _hit_nearby(self, x, y, half_width, half_height, damage):
+    def _hit_nearby(self, x, y, half_width, half_height, damage, hit):
         for enemy in self.enemies:
-            if enemy.health <= 0 or enemy in self.struck:
+            if enemy.health <= 0 or enemy in hit:
                 continue
             if (abs(enemy.x - x) <= half_width + enemy.HIT_RADIUS
                     and abs(enemy.y - y) <= half_height + enemy.HIT_RADIUS):
                 enemy.take_damage(damage)
-                self.struck.add(enemy)
+                hit.add(enemy)
 
     def _set_frame(self, frame):
         self.frame = frame
@@ -238,7 +240,8 @@ class Character:
 
     def _update_step(self, dt):
         if self.slam_wave_origin is not None:
-            self.slam_wave_age += dt
+            self.slam_wave_age = min(self.slam_wave_age + dt, self.SLAM_WAVE_DURATION)
+            self._hit_slam_wave()
             if self.slam_wave_age >= self.SLAM_WAVE_DURATION:
                 self.slam_wave_origin = None
         if self.state in ('IDLE', 'RUN'):
@@ -269,7 +272,8 @@ class Character:
                 landed = self._apply_gravity(dt)
                 if landed:
                     self._set_frame(2)
-                    self._hit_nearby(self.x, self.y + 45, 165, 65, 38)
+                    self.slam_hits.clear()
+                    self._hit_nearby(self.x, self.y + 45, 165, 65, self.SLAM_DAMAGE, self.slam_hits)
                     self.slam_wave_origin = (self.x, self.y)
                     self.slam_wave_age = 0.0
                     drop = self.slam_peak_y - self.y
@@ -292,7 +296,7 @@ class Character:
         if self.frame in (1, 2) and self.state in ('ATTACK', 'THRUST', 'UPPERCUT'):
             high = self.state == 'UPPERCUT'
             self._hit_nearby(self.x + self.face_dir * 62, self.y + (128 if high else 80),
-                             82, 95 if high else 58, 32 if high else 26)
+                             82, 95 if high else 58, 32 if high else 26, self.struck)
 
         if self.state in ('RUN', 'THRUST') and self.is_airborne():
             self.fall()
@@ -346,14 +350,27 @@ class Character:
                                   self.y + (foot_y - image.h / 2) * scale,
                                   width * scale, image.h * scale)
 
-    def _draw_slam_wave(self):
-        x, y = self.slam_wave_origin
+    def _slam_wave_geometry(self):
         progress = self.slam_wave_age / self.SLAM_WAVE_DURATION
         scale = self.slam_wave_scale
         front = (52 + 650 * progress) * scale
         width = min(front, 420 * scale)
         height = (100 + 120 * min(progress * 5, 1)) * scale
-        offset = front - width / 2
+        return front - width / 2, width, height
+
+    def _hit_slam_wave(self):
+        x, y = self.slam_wave_origin
+        offset, width, height = self._slam_wave_geometry()
+        # 불꽃은 스프라이트의 접지선부터 전체 높이의 약 54%를 차지합니다.
+        half_height = height * 0.27
+        for direction in (-1, 1):
+            self._hit_nearby(x + direction * offset, y + half_height, width / 2,
+                             half_height, self.SLAM_DAMAGE, self.slam_hits)
+
+    def _draw_slam_wave(self):
+        x, y = self.slam_wave_origin
+        progress = self.slam_wave_age / self.SLAM_WAVE_DURATION
+        offset, width, height = self._slam_wave_geometry()
         image = self.images['slam_wave']
         image.opacify(min(1.0, (1 - progress) * 3))
         # 원본에서 불꽃의 접지선은 아래에서 약 26% 지점입니다.
