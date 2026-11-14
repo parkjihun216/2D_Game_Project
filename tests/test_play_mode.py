@@ -177,6 +177,7 @@ class PlayModeTests(unittest.TestCase):
         with patch.object(main, 'open_canvas'), \
                 patch.object(main, 'fit_game_window'), \
                 patch.object(main.title_mode, 'run', return_value=True), \
+                patch.object(main.character_select_mode, 'run', return_value=play_mode.Character), \
                 patch.object(main, 'close_canvas') as close, \
                 patch.object(main, 'get_time', side_effect=[1.0, 1.02]), \
                 patch.object(play_mode, 'init'), \

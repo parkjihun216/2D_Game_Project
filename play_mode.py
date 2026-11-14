@@ -21,14 +21,16 @@ intro = None
 p_held = False
 
 
-def init():
+def init(player_type=None):
     global character, hud, running, intro, p_held
     if intro is not None:
         intro.close()
     intro, p_held = None, False
     if hud is not None:
         hud.close()
-    character = Character(ground_y=Background.GROUND_Y, enemies=[])
+    if player_type is None:
+        player_type = Character
+    character = player_type(ground_y=Background.GROUND_Y, enemies=[])
     _load_stage(1)
     hud = PlayerHUD()
     running = True

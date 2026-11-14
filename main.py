@@ -4,6 +4,7 @@ import pico2d.pico2d as canvas
 from pico2d import open_canvas, close_canvas, get_time, delay
 import play_mode
 import title_mode
+import character_select_mode
 
 
 def fit_game_window():
@@ -27,9 +28,15 @@ def main():
     open_canvas(1920, 1080)
     try:
         fit_game_window()
-        if not title_mode.run():
-            return
-        play_mode.init()
+        while True:
+            if not title_mode.run():
+                return
+            selection = character_select_mode.run()
+            if selection is character_select_mode.Navigation.QUIT:
+                return
+            if selection is not character_select_mode.Navigation.BACK:
+                break
+        play_mode.init(selection)
         previous_time = get_time()
         while play_mode.running:
             current_time = get_time()
