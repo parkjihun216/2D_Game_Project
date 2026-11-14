@@ -7,6 +7,9 @@ class Monster:
     MAX_HEALTH = 100
     HIT_RADIUS = 32
     SIZE = (108, 108)
+    DRAW_SCALE = 1.8
+    # 지상 몬스터는 중심에서 발까지의 기존 거리를 기준으로 확대합니다.
+    FOOT_OFFSET = 0
     RANGE = 360
     WINDUP = 0.55
     RECOVERY = 2.0
@@ -68,10 +71,9 @@ class Monster:
     def draw(self):
         if not self.health:
             return
-        _, h = self.SIZE
         recoil = 5 * sin(self.hit_flash * 60) if self.hit_flash else 0
-        self.draw_sprite(recoil)
-        left, top = self.x - 26, self.y + h * 0.5 + 5
+        sprite_top = self.draw_sprite(recoil)
+        left, top = self.x - 26, sprite_top + 5
         draw_rectangle(left - 2, top - 6, left + 54, top + 2, 34, 16, 22, filled=True)
         color = (255, 231, 183) if self.hit_flash else (232, 89, 62)
         draw_rectangle(left, top - 4, left + 52 * self.health / self.MAX_HEALTH,
@@ -82,9 +84,13 @@ class Monster:
             self.draw_warning()
 
     def draw_sprite(self, recoil):
+        width, height = self.SIZE
+        center_y = self.y + self.FOOT_OFFSET * (self.DRAW_SCALE - 1)
+        height *= self.DRAW_SCALE
         self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, 0,
                                       'h' if self.facing < 0 else '',
-                                      self.x + recoil, self.y, *self.SIZE)
+                                      self.x + recoil, center_y, width * self.DRAW_SCALE, height)
+        return center_y + height / 2
 
     def draw_warning(self):
         pass
@@ -92,6 +98,7 @@ class Monster:
 
 class ChainHound(Monster):
     SIZE = (164, 130)
+    FOOT_OFFSET = 52
     MAX_HEALTH = 75
     RANGE = 320
 
@@ -142,6 +149,8 @@ class Gargoyle(Monster):
 
 class BellExecutioner(Monster):
     SIZE = (166, 180)
+    DRAW_SCALE = 2.025
+    FOOT_OFFSET = 78
     MAX_HEALTH = 160
     HIT_RADIUS = 54
     WINDUP = 0.85
@@ -177,8 +186,7 @@ class BellExecutioner(Monster):
 
     def draw_sprite(self, recoil):
         if self.slam_image is None or self.phase == 'ready':
-            super().draw_sprite(recoil)
-            return
+            return super().draw_sprite(recoil)
         ground = self.player.ground_y
         frame = 0
         if self.phase == 'slam':
@@ -188,7 +196,7 @@ class BellExecutioner(Monster):
         sheet = self.slam_image
         frame_width = sheet.w // 3
         # 세 포즈의 발이 같은 바닥선에 닿도록 아틀라스 여백을 보정합니다.
-        height = 240
+        height = 240 * self.DRAW_SCALE
         width = height * frame_width / sheet.h
         self.slam_image.clip_composite_draw(
             frame * frame_width, 0, frame_width, sheet.h, 0,
@@ -208,6 +216,8 @@ class BellExecutioner(Monster):
                     size = 4 * (1 - progress)
                     draw_rectangle(x - size, y - size, x + size, y + size,
                                    226, 156, 85, filled=True)
+        # 세 프레임에서 주먹 또는 머리가 닿는 높이입니다(발 기준).
+        return ground + height * (0.955, 0.75, 0.53)[frame]
 
 
 class ChoirShade(Monster):
