@@ -1,4 +1,6 @@
-from pico2d import draw_line, draw_rectangle, load_image
+import imageio_ffmpeg
+import pico2d.pico2d as canvas
+from pico2d import draw_line, draw_rectangle, load_image, load_wav
 
 from monsters import Monster
 
@@ -21,32 +23,55 @@ class SealedSanctum:
 class VergilIntro:
     DURATION = 5.0
 
-    def __init__(self, arena):
-        self.arena = arena
-        self.portrait = load_image('assets/vergil_reveal.png')
+    def __init__(self):
         self.elapsed = 0.0
+        self.frames = None
+        self.image = None
+        self.frame_index = -1
+        self.sound = None
+        self.channel = -1
+
+    def _start_playback(self):
+        self.frames = imageio_ffmpeg.read_frames('assets/vergil_intro.mp4', pix_fmt='rgb24')
+        metadata = next(self.frames)
+        width, height = metadata['size']
+        self.fps = metadata['fps']
+        texture = canvas.SDL_CreateTexture(canvas.renderer, canvas.SDL_PIXELFORMAT_RGB24,
+                                           canvas.SDL_TEXTUREACCESS_STREAMING, width, height)
+        if not texture:
+            raise RuntimeError('버질 컷신의 영상 텍스처를 만들 수 없습니다.')
+        self.image = canvas.Image(texture)
+        if canvas.audio_on:
+            self.sound = load_wav('assets/vergil_intro.wav')
+            self.channel = canvas.Mix_PlayChannel(-1, self.sound.wav, 0)
+
+    def close(self):
+        if self.channel >= 0:
+            canvas.Mix_HaltChannel(self.channel)
+            self.channel = -1
+        self.sound = None
+        if self.frames is not None:
+            self.frames.close()
+            self.frames = None
+        self.image = None
 
     def update(self, dt):
         self.elapsed += dt
         return self.elapsed >= self.DURATION
 
     def draw(self, hud):
-        t = self.elapsed
-        draw_rectangle(0, 0, 1920, 1080, 0, 0, 0, filled=True)
-        if t < 1.8:
-            image = self.arena.image
-            zoom = 1 + 0.055 * t
-            alpha = min(1, t / 0.35, (1.8 - t) / 0.2)
-        else:
-            image = self.portrait
-            zoom = 1 + 0.035 * (t - 1.8)
-            alpha = min(1, (t - 1.8) / 0.18, (self.DURATION - t) / 0.45)
-        image.opacify(max(0, alpha))
-        image.draw(960, 540, 1920 * zoom, 1080 * zoom)
-        image.opacify(1)
+        if self.frames is None:
+            self._start_playback()
+        target = int(self.elapsed * self.fps)
+        if target > self.frame_index:
+            for _ in range(target - self.frame_index):
+                pixels = next(self.frames)
+            canvas.SDL_UpdateTexture(self.image.texture, None, pixels, self.image.w * 3)
+            self.frame_index = target
+        self.image.draw(960, 540, 1920, 1080)
         draw_rectangle(0, 0, 1920, 92, 0, 0, 0, filled=True)
         draw_rectangle(0, 988, 1920, 1080, 0, 0, 0, filled=True)
-        if t >= 2.1:
+        if self.elapsed >= 3.5:
             hud.timer_font.draw(84, 49, '마인 버질', (188, 221, 255))
         hud.stage_font.draw(1630, 45, 'Space  건너뛰기', (202, 213, 230))
 

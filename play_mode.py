@@ -23,6 +23,8 @@ p_held = False
 
 def init():
     global character, hud, running, intro, p_held
+    if intro is not None:
+        intro.close()
     intro, p_held = None, False
     if hud is not None:
         hud.close()
@@ -74,7 +76,6 @@ def _load_stage(stage):
     game_world.add_object(character, 1)
     if stage == 1:
         game_world.add_object(LavaTorrent(character), 1)
-    return background
 
 
 def _advance_stage():
@@ -89,13 +90,13 @@ def _advance_stage():
         character.face_dir = 1
         character.machine.set_state('IDLE')
         character.reset_animation()
-    background = _load_stage(stage)
+    _load_stage(stage)
     character.shockwave = None
     character.slam_wave_origin = None
     character.slam_hits.clear()
     character.struck.clear()
     if stage == 3:
-        intro = VergilIntro(background)
+        intro = VergilIntro()
     else:
         hud.start_stage(stage)
 
@@ -129,6 +130,7 @@ def update(delta_time):
     global intro
     if intro is not None:
         if intro.update(delta_time):
+            intro.close()
             intro = None
             hud.start_stage(3)
         return
@@ -147,6 +149,8 @@ def draw():
 
 def finish():
     global character, hud, running, intro, p_held
+    if intro is not None:
+        intro.close()
     intro, p_held = None, False
     game_world.clear()
     character = None
