@@ -29,6 +29,12 @@ class PlayerHUD:
         self.stage = stage
         self.deadline = monotonic() + self.ROUND_SECONDS
 
+    def pause_timer(self):
+        self.paused_at = monotonic()
+
+    def resume_timer(self):
+        self.deadline += monotonic() - self.paused_at
+
     def close(self):
         TTF_CloseFont(self.timer_font.font)
         TTF_CloseFont(self.stage_font.font)

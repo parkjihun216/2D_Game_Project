@@ -121,7 +121,7 @@ class PlayModeTests(unittest.TestCase):
                 if skip:
                     events.return_value = [event(down, play_mode.SDLK_SPACE)]
                     play_mode.handle_events()
-                play_mode.update(0.016 if skip else 3.0)
+                play_mode.update(0.016 if skip else 1.0)
                 self.assertIsNone(play_mode.intro)
                 status.start_stage.assert_called_once_with(3)
                 combat.assert_not_called()
@@ -131,6 +131,36 @@ class PlayModeTests(unittest.TestCase):
                 self.assertIs(player.enemies[0], boss)
                 play_mode.update(0.016)
                 combat.assert_called_once_with(0.016)
+                human_image = boss.image
+                boss.take_damage(299)
+                play_mode.update(0.016)
+                self.assertIsNone(play_mode.intro)
+                boss.take_damage(1 if skip else 18)
+                remaining = boss.health
+                self.assertEqual(remaining, 300 if skip else 283)
+                play_mode.update(0.016)
+                self.assertTrue(play_mode.intro.transformation)
+                status.pause_timer.assert_called_once()
+                self.assertIs(boss.image, human_image)
+                boss.take_damage(38)
+                combat.reset_mock()
+                play_mode.update(0.25)
+                self.assertEqual(boss.health, remaining)
+                if skip:
+                    events.return_value = [event(down, play_mode.SDLK_SPACE)]
+                    play_mode.handle_events()
+                play_mode.update(0.016 if skip else 4.25)
+                combat.assert_not_called()
+                status.resume_timer.assert_called_once()
+                status.start_stage.assert_called_once_with(3)
+                self.assertIsNone(play_mode.intro)
+                self.assertEqual(boss.form, 'demon')
+                self.assertIs(boss.image, boss.demon_image)
+                self.assertEqual(boss.health, remaining)
+                boss.take_damage(remaining)
+                play_mode.update(0.016)
+                self.assertEqual(boss.health, 0)
+                self.assertIsNone(play_mode.intro)
                 events.return_value = [event(up, p)]
                 play_mode.handle_events()
 

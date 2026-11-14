@@ -59,7 +59,7 @@ def _load_stage(stage):
         )
     else:
         background = SealedSanctum()
-        spawns = ((DemonVergil, 'assets/enemies/blue_vergil.png', 1440, ground + DemonVergil.FOOT_OFFSET),)
+        spawns = ((DemonVergil, 'assets/enemies/human_vergil.png', 1440, ground + DemonVergil.FOOT_OFFSET),)
     for kind, path, x, y in spawns:
         enemy = kind(load_image(path), x, y, character)
         if stage == 3:
@@ -121,7 +121,9 @@ def handle_events():
             p_held = event.type == SDL_KEYDOWN
         elif intro is not None:
             if event.type == SDL_KEYDOWN and event.key == SDLK_SPACE:
-                intro.elapsed = intro.DURATION
+                intro.elapsed = intro.duration
+            elif intro.transformation and event.type == SDL_KEYUP:
+                character.handle_event(event)
         else:
             character.handle_event(event)
 
@@ -130,11 +132,18 @@ def update(delta_time):
     global intro
     if intro is not None:
         if intro.update(delta_time):
+            if intro.transformation:
+                character.enemies[0].finish_transformation()
+                hud.resume_timer()
+            else:
+                hud.start_stage(3)
             intro.close()
             intro = None
-            hud.start_stage(3)
         return
     game_world.update(delta_time)
+    if hud.stage == 3 and character.enemies[0].form == 'transforming':
+        hud.pause_timer()
+        intro = VergilIntro(transformation=True)
 
 
 def draw():

@@ -21,9 +21,10 @@ class SealedSanctum:
 
 
 class VergilIntro:
-    DURATION = 5.0
-
-    def __init__(self):
+    def __init__(self, transformation=False):
+        self.transformation = transformation
+        self.asset = 'assets/vergil_transform' if transformation else 'assets/vergil_intro'
+        self.duration = 4.5 if transformation else 3.0
         self.elapsed = 0.0
         self.frames = None
         self.image = None
@@ -32,7 +33,7 @@ class VergilIntro:
         self.channel = -1
 
     def _start_playback(self):
-        self.frames = imageio_ffmpeg.read_frames('assets/vergil_intro.mp4', pix_fmt='rgb24')
+        self.frames = imageio_ffmpeg.read_frames(self.asset + '.mp4', pix_fmt='rgb24')
         metadata = next(self.frames)
         width, height = metadata['size']
         self.fps = metadata['fps']
@@ -42,7 +43,7 @@ class VergilIntro:
             raise RuntimeError('버질 컷신의 영상 텍스처를 만들 수 없습니다.')
         self.image = canvas.Image(texture)
         if canvas.audio_on:
-            self.sound = load_wav('assets/vergil_intro.wav')
+            self.sound = load_wav(self.asset + '.wav')
             self.channel = canvas.Mix_PlayChannel(-1, self.sound.wav, 0)
 
     def close(self):
@@ -57,7 +58,7 @@ class VergilIntro:
 
     def update(self, dt):
         self.elapsed += dt
-        return self.elapsed >= self.DURATION
+        return self.elapsed >= self.duration
 
     def draw(self, hud):
         if self.frames is None:
@@ -71,8 +72,10 @@ class VergilIntro:
         self.image.draw(960, 540, 1920, 1080)
         draw_rectangle(0, 0, 1920, 92, 0, 0, 0, filled=True)
         draw_rectangle(0, 988, 1920, 1080, 0, 0, 0, filled=True)
-        if self.elapsed >= 3.5:
+        if self.transformation and self.elapsed >= 2.0:
             hud.timer_font.draw(84, 49, '마인 버질', (188, 221, 255))
+        elif self.elapsed >= 0.3:
+            hud.timer_font.draw(84, 49, '버질', (212, 216, 223))
         hud.stage_font.draw(1630, 45, 'Space  건너뛰기', (202, 213, 230))
 
 
@@ -86,6 +89,35 @@ class DemonVergil(Monster):
     RECOVERY = 1.7
     DAMAGE = 18
     DASH_TIME = 0.24
+
+    def __init__(self, image, x, y, player=None):
+        super().__init__(image, x, y, player)
+        self.form = 'human'
+        self.demon_image = load_image('assets/enemies/winged_vergil.png')
+
+    def take_damage(self, amount):
+        if self.form == 'transforming':
+            return
+        super().take_damage(amount)
+        if self.form == 'human' and self.health <= self.MAX_HEALTH / 2:
+            self.health = max(1, self.health)
+            self.form = 'transforming'
+
+    def finish_transformation(self):
+        self.image = self.demon_image
+        self.form = 'demon'
+        self.recover()
+
+    def draw_sprite(self, recoil):
+        if self.form == 'demon':
+            return super().draw_sprite(recoil)
+        height = 250
+        ground = self.y - self.FOOT_OFFSET
+        self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, 0,
+                                       'h' if self.facing < 0 else '',
+                                       self.x + recoil, ground + height / 2,
+                                       height * self.image.w / self.image.h, height)
+        return ground + height
 
     def seek(self, dx, dy, dt):
         self.approach(dx, 0, 120, dt)
