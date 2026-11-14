@@ -5,13 +5,16 @@ from unittest.mock import Mock, patch
 import character as game
 import monsters
 from ember_wisp import EmberWisp
+from jungle_monsters import BriarJaguar, JadeHornet, OrchidMantis, RootGuardian, SporeToad
 from monsters import BellExecutioner, ChainHound, ChoirShade, Gargoyle
 
 
 class MonsterCombatTests(unittest.TestCase):
     # 적의 중심 좌표를 단테의 발 위치에 상대적으로 배치합니다.
     CASES = ((EmberWisp, -230, 100), (ChainHound, -170, 52),
-             (Gargoyle, -120, 210), (BellExecutioner, -100, 78), (ChoirShade, -160, 120))
+             (Gargoyle, -120, 210), (BellExecutioner, -100, 78), (ChoirShade, -160, 120),
+             (BriarJaguar, -180, 34), (OrchidMantis, -115, 46), (SporeToad, -80, 34),
+             (JadeHornet, -135, 190), (RootGuardian, -210, 79))
 
     def setUp(self):
         self.addCleanup(setattr, game.Character, 'images', None)

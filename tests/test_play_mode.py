@@ -73,8 +73,10 @@ class PlayModeTests(unittest.TestCase):
             self.assertIs(player.platforms, game_world.world[0][0].platforms)
             self.assertIs(play_mode.character, player)
             self.assertEqual(player.health, 65)
-            self.assertEqual(player.enemies, [])
-            self.assertEqual(game_world.world[1], [player])
+            self.assertCountEqual([type(enemy) for enemy in player.enemies],
+                                  [play_mode.BriarJaguar, play_mode.OrchidMantis,
+                                   play_mode.SporeToad, play_mode.JadeHornet, play_mode.RootGuardian])
+            self.assertEqual(game_world.world[1], [*player.enemies, player])
             self.assertEqual(play_mode.hud.stage, 2)
             self.assertEqual(play_mode.hud.deadline, 45 + hud.PlayerHUD.ROUND_SECONDS)
             play_mode.finish()

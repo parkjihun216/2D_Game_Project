@@ -8,6 +8,7 @@ from character import Character
 from lava_torrent import LavaTorrent
 from ember_wisp import EmberWisp
 from monsters import BellExecutioner, ChainHound, ChoirShade, Gargoyle
+from jungle_monsters import BriarJaguar, JadeHornet, OrchidMantis, RootGuardian, SporeToad
 from hud import PlayerHUD
 import game_world
 
@@ -38,7 +39,17 @@ def _load_stage(stage):
         (BellExecutioner, 'assets/enemies/bell_executioner.png', 1620, ground + 78),
         (ChoirShade, 'assets/enemies/choir_shade.png', 410, 625),
     )
-    spawns = lava_spawns if stage == 1 else ()
+    if stage == 1:
+        spawns = lava_spawns
+    else:
+        shelf = background.platforms[2]
+        spawns = (
+            (BriarJaguar, 'assets/enemies/briar_jaguar.png', 240, ground + BriarJaguar.FOOT_OFFSET),
+            (OrchidMantis, 'assets/enemies/orchid_mantis.png', 1380, ground + OrchidMantis.FOOT_OFFSET),
+            (SporeToad, 'assets/enemies/spore_toad.png', shelf.x, shelf.top + SporeToad.FOOT_OFFSET),
+            (JadeHornet, 'assets/enemies/jade_hornet.png', 670, 665),
+            (RootGuardian, 'assets/enemies/root_guardian.png', 1740, ground + RootGuardian.FOOT_OFFSET),
+        )
     for kind, path, x, y in spawns:
         enemy = kind(load_image(path), x, y, character)
         if isinstance(enemy, BellExecutioner):
