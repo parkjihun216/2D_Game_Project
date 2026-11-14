@@ -70,6 +70,7 @@ class PlayModeTests(unittest.TestCase):
             self.assertEqual(len(player.enemies), 5)
             play_mode.handle_events()
             self.assertIsInstance(game_world.world[0][0], play_mode.JungleBackground)
+            self.assertIs(player.platforms, game_world.world[0][0].platforms)
             self.assertIs(play_mode.character, player)
             self.assertEqual(player.health, 65)
             self.assertEqual(player.enemies, [])

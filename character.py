@@ -57,7 +57,7 @@ class Character:
         {'trigger': 'stop_run', 'source': 'RUN', 'dest': 'IDLE'},
         {'trigger': 'attack', 'source': ['IDLE', 'RUN'], 'dest': 'ATTACK'},
         {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP', 'after': 'start_jump_fx'},
-        {'trigger': 'fall', 'source': ['RUN', 'THRUST'], 'dest': 'JUMP'},
+        {'trigger': 'fall', 'source': ['IDLE', 'RUN', 'THRUST'], 'dest': 'JUMP'},
         {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
         {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
         {'trigger': 'slam', 'source': ['IDLE', 'RUN'], 'dest': 'SLAM',
@@ -298,7 +298,7 @@ class Character:
             self._hit_nearby(self.x + self.face_dir * 62, self.y + (128 if high else 80),
                              82, 95 if high else 58, 32 if high else 26, self.struck)
 
-        if self.state in ('RUN', 'THRUST') and self.is_airborne():
+        if self.state in ('IDLE', 'RUN', 'THRUST') and self.is_airborne():
             self.fall()
             self._set_frame(2)
             return

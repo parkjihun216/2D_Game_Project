@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import character as game
-from background import Background
+from background import Background, JungleBackground
 from ember_wisp import EmberWisp
 from trigger_shockwave import TriggerShockwave
 
@@ -313,6 +313,31 @@ class CharacterTests(unittest.TestCase):
                 self.player.update(0.49)
                 top = self.player.y + self.player.PIVOTS['JUMP'][self.player.frame][1] * self.player.DRAW_SCALE
                 self.assertLess(top, 1080)
+
+    def test_jungle_platform_carries_player_until_takeoff_and_reverses(self):
+        p = self.player
+        with patch('background.load_image'):
+            jungle = JungleBackground(p)
+        p.platforms = jungle.platforms
+        platform = jungle.moving_platforms[0]
+        p.x, p.y = platform.x + 25, platform.top
+        for target in (platform.right_x, platform.left_x):
+            for _ in range(150):
+                jungle.update(1 / 60)
+                p.update(1 / 60)
+            self.assertAlmostEqual(platform.x, target)
+            self.assertAlmostEqual(p.x, target + 25)
+            self.assertEqual(p.y, platform.top)
+        self.press(game.SDLK_j)
+        for _ in range(10):
+            jungle.update(1 / 60)
+            p.update(1 / 60)
+        airborne_x = p.x
+        self.assertGreater(p.y, platform.top)
+        for _ in range(20):
+            jungle.update(1 / 60)
+            p.update(1 / 60)
+        self.assertEqual(p.x, airborne_x)
 
     def test_walk_off_platform_and_slam_back_to_bridge(self):
         self.player = game.Character(ground_y=Background.GROUND_Y,

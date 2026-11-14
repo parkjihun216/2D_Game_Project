@@ -21,15 +21,14 @@ def init():
     global character, hud, running
     if hud is not None:
         hud.close()
-    character = Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS,
-                          enemies=[])
+    character = Character(ground_y=Background.GROUND_Y, enemies=[])
     _load_stage(1)
     hud = PlayerHUD()
     running = True
 
 
 def _load_stage(stage):
-    background = Background() if stage == 1 else JungleBackground()
+    background = Background() if stage == 1 else JungleBackground(character)
     enemies = []
     ground = Background.GROUND_Y
     lava_spawns = (
@@ -47,6 +46,7 @@ def _load_stage(stage):
         enemies.append(enemy)
     game_world.clear()
     game_world.add_object(background, 0)
+    character.platforms = background.platforms
     character.enemies = enemies
     for enemy in enemies:
         game_world.add_object(enemy, 1)
