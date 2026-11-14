@@ -83,7 +83,8 @@ class JungleBackground(Background):
 
     def update(self, delta_time):
         for platform in self.moving_platforms:
-            riding = (self.player.y == platform.top and self.player.velocity_y == 0
+            riding = (not self.player.ignore_platforms_until_ground
+                      and self.player.y == platform.top and self.player.velocity_y == 0
                       and platform.supports(self.player.x))
             previous_x = platform.x
             platform.update(delta_time)

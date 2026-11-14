@@ -17,7 +17,7 @@ class Character:
     MOVE_SPEED = 300.0
     THRUST_SPEED = 1000.0
     GRAVITY = 1800.0
-    JUMP_SPEED = 650.0
+    JUMP_SPEED = 740.0
     MORPH_TIME = 0.32
     DEMON_TIME = 30.0
     MAX_HEALTH = 100
@@ -58,14 +58,14 @@ class Character:
         {'trigger': 'stop_run', 'source': 'RUN', 'dest': 'IDLE'},
         {'trigger': 'attack', 'source': ['IDLE', 'RUN'], 'dest': 'ATTACK'},
         {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP', 'after': 'start_jump_fx'},
-        {'trigger': 'fall', 'source': ['IDLE', 'RUN', 'THRUST'], 'dest': 'JUMP'},
+        {'trigger': 'fall', 'source': ['IDLE', 'RUN', 'THRUST', 'UPPERCUT'], 'dest': 'JUMP'},
         {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
         {'trigger': 'thrust', 'source': 'JUMP', 'dest': 'THRUST',
          'conditions': 'is_airborne', 'after': 'start_air_thrust'},
         {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
         {'trigger': 'slam', 'source': ['IDLE', 'RUN'], 'dest': 'SLAM',
          'after': 'start_ground_slam'},
-        {'trigger': 'slam', 'source': 'JUMP', 'dest': 'SLAM',
+        {'trigger': 'slam', 'source': ['JUMP', 'UPPERCUT'], 'dest': 'SLAM',
          'conditions': 'is_airborne', 'after': 'start_air_slam'},
         {'trigger': 'finish_action',
          'source': ['ATTACK', 'JUMP', 'THRUST', 'UPPERCUT', 'SLAM'],
@@ -105,6 +105,8 @@ class Character:
         self.frame_elapsed = 0.0
         self.jump_fx = False
         self.air_thrust = False
+        self.uppercut_slam_queued = False
+        self.ignore_platforms_until_ground = False
         self.demon_remaining = 0.0
         self.trigger_cooldown = 0.0
         self.face_dir = 1
@@ -124,6 +126,7 @@ class Character:
         self._set_frame(0)
         self.jump_fx = False
         self.air_thrust = False
+        self.uppercut_slam_queued = False
         self.struck.clear()
 
     def take_damage(self, amount):
@@ -148,7 +151,10 @@ class Character:
         return self.dir != 0
 
     def is_airborne(self):
-        return self.y > self._surface_below()
+        return self.y > self._landing_surface()
+
+    def _landing_surface(self):
+        return self.ground_y if self.ignore_platforms_until_ground else self._surface_below()
 
     def _surface_below(self):
         return max((p.top for p in self.platforms if p.top <= self.y and p.supports(self.x)),
@@ -214,7 +220,10 @@ class Character:
             elif event.key == SDLK_o:
                 self.uppercut()
             elif event.key == SDLK_k:
-                self.slam()
+                if self.state == 'UPPERCUT' and self.frame <= 1 and not self.is_airborne():
+                    self.uppercut_slam_queued = True
+                else:
+                    self.slam()
             elif event.key == SDLK_l and self.trigger_cooldown <= 1e-10:
                 self.demon_remaining = self.MORPH_TIME + self.DEMON_TIME
                 self.trigger_cooldown = self.TRIGGER_COOLDOWN
@@ -225,12 +234,13 @@ class Character:
         self.x = max(margin, min(self.canvas_width - margin, self.x + distance))
 
     def _apply_gravity(self, dt):
-        surface = self._surface_below()
+        surface = self._landing_surface()
         self.y += self.velocity_y * dt - 0.5 * self.GRAVITY * dt * dt
         self.velocity_y -= self.GRAVITY * dt
         if self.y <= surface:
             self.y = surface
             self.velocity_y = 0.0
+            self.ignore_platforms_until_ground = False
             return True
         return False
 
@@ -302,7 +312,10 @@ class Character:
         elif self.state == 'THRUST' and self.frame in (1, 2):
             self._move_x(self.face_dir * self.THRUST_SPEED * dt)
 
-        if self.air_thrust:
+        if self.state == 'UPPERCUT' and self.frame > 0:
+            self.ignore_platforms_until_ground = True
+            self._apply_gravity(dt)
+        elif self.air_thrust:
             self._apply_gravity(dt)
 
         if self.frame in (1, 2) and self.state in ('ATTACK', 'THRUST', 'UPPERCUT'):
@@ -318,8 +331,14 @@ class Character:
         if self.frame_elapsed + 1e-10 >= interval:
             self.frame_elapsed -= interval
             self.frame = (self.frame + 1) % 4
+            if self.state == 'UPPERCUT':
+                if self.frame == 1:
+                    self.velocity_y = self.JUMP_SPEED
+                elif self.frame == 2 and self.uppercut_slam_queued:
+                    self.slam()
+                    return
             if self.frame == 0 and self.state not in ('IDLE', 'RUN'):
-                if self.air_thrust and self.is_airborne():
+                if (self.air_thrust or self.state == 'UPPERCUT') and self.is_airborne():
                     self.fall()
                     self._set_frame(1 if self.velocity_y > 0 else 2)
                 else:

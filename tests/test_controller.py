@@ -156,6 +156,61 @@ class CharacterTests(unittest.TestCase):
         self.player.update(0.3)
         self.assertEqual(self.player.state, 'IDLE')
 
+    def test_uppercut_chains_into_slam_on_early_or_airborne_k(self):
+        for delay in (0, 0.20):
+            for on_platform in (False, True):
+                with self.subTest(delay=delay, on_platform=on_platform):
+                    shelf = Platform(960, 280, 250)
+                    p = self.player = game.Character(ground_y=200, platforms=(shelf,))
+                    launch_y = p.y = shelf.top if on_platform else p.ground_y
+                    near = EmberWisp(None, p.x + 60, launch_y + 55)
+                    far = EmberWisp(None, p.x + 420, p.ground_y + 45)
+                    p.enemies = [near, far]
+                    self.press(game.SDLK_o)
+                    p.update(delay)
+                    self.press(game.SDLK_k)
+                    self.release(game.SDLK_k)
+                    if delay:
+                        self.assertEqual(p.state, 'SLAM')
+                    for _ in range(60):
+                        if p.state == 'SLAM':
+                            break
+                        p.update(1 / 120)
+                    self.assertEqual((p.state, p.frame), ('SLAM', 1))
+                    self.assertGreater(p.y, launch_y)
+                    self.assertLess(p.velocity_y, 0)
+                    self.assertEqual(near.health, near.MAX_HEALTH - 32)
+                    p.update(0.4)
+                    self.assertEqual(p.slam_wave_origin, (p.x, p.ground_y))
+                    p.update(0.8)
+                    self.assertEqual(near.health, near.MAX_HEALTH - 32 - p.SLAM_DAMAGE)
+                    self.assertEqual(far.health, far.MAX_HEALTH - p.SLAM_DAMAGE)
+                    self.assertEqual((p.state, p.y), ('IDLE', p.ground_y))
+
+    def test_uppercut_passes_through_shelf_then_normal_jump_lands_on_it(self):
+        p = self.player
+        shelf = Platform(p.x, p.ground_y + 90, 250)
+        p.platforms = (shelf,)
+        self.press(game.SDLK_o)
+        p.update(0.5)
+        self.assertGreater(p.y, shelf.top)
+        p.update(1.0)
+        self.assertEqual((p.state, p.y), ('IDLE', p.ground_y))
+        self.press(game.SDLK_j)
+        p.update(1.5)
+        self.assertEqual((p.state, p.y), ('IDLE', shelf.top))
+
+    def test_uppercut_without_k_falls_and_resumes_run(self):
+        p = self.player
+        self.press(game.SDLK_RIGHT)
+        self.press(game.SDLK_o)
+        p.update(0.5)
+        self.assertEqual(p.state, 'JUMP')
+        self.assertGreater(p.y, p.ground_y)
+        p.update(1.0)
+        self.assertEqual((p.state, p.y), ('RUN', p.ground_y))
+        self.assertIsNone(p.slam_wave_origin)
+
     def test_slam_waves_spread_from_landing_point_on_ground_and_platform(self):
         for airborne in (False, True):
             with self.subTest(airborne=airborne):
@@ -300,7 +355,10 @@ class CharacterTests(unittest.TestCase):
         p = self.player
         p.platforms = (Platform(p.x + 145, p.ground_y + 75, 240),)
         self.press(game.SDLK_j)
-        p.update(0.53)
+        for _ in range(120):
+            p.update(1 / 120)
+            if p.velocity_y < 0:
+                break
         self.assertLess(p.velocity_y, 0)
         self.press(game.SDLK_i)
         p.update(0.32)
@@ -312,8 +370,10 @@ class CharacterTests(unittest.TestCase):
         self.press(game.SDLK_RIGHT)
         self.press(game.SDLK_j)
         start_x = self.player.x
-        for _ in range(60):
+        for _ in range(90):
             self.player.update(1 / 60)
+            if self.player.state == 'RUN':
+                break
         self.assertGreater(self.player.x, start_x)
         self.assertEqual(self.player.y, self.player.ground_y)
         self.assertEqual(self.player.state, 'RUN')
@@ -338,12 +398,19 @@ class CharacterTests(unittest.TestCase):
                         self.assertEqual(self.player.y, previous.top)
                     self.press(game.SDLK_j)
                     self.release(game.SDLK_j)
-                    self.player.update(0.90)
+                    for _ in range(90):
+                        self.player.update(1 / 60)
+                        if self.player.state == 'RUN':
+                            break
                     self.assertEqual((self.player.y, self.player.state), (platform.top, 'RUN'))
                     self.release(key)
                 self.assertEqual((route[-1].x, self.player.y), (960, 720))
                 self.press(game.SDLK_j)
-                self.player.update(0.49)
+                for _ in range(60):
+                    self.player.update(1 / 60)
+                    if self.player.frame == 2:
+                        break
+                self.assertEqual(self.player.frame, 2)
                 top = self.player.y + self.player.PIVOTS['JUMP'][self.player.frame][1] * self.player.DRAW_SCALE
                 self.assertLess(top, 1080)
 
