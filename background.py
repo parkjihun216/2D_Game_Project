@@ -42,8 +42,22 @@ class Background:
         for center_x in (480, 1440):
             self.bridge.clip_draw((self.bridge.w - 1920) // 2, 0, 1920, self.bridge.h,
                                   center_x, center_y, tile_width, draw_height)
+        self.draw_platforms(0.30)
+
+    def draw_platforms(self, surface_from_top):
         for platform in self.PLATFORMS:
             height = platform.width * self.platform_image.h / self.platform_image.w
-            # 이미지 위에서 30% 지점이 윗면의 중앙입니다.
-            self.platform_image.draw(platform.x, platform.top - height * 0.20,
+            self.platform_image.draw(platform.x, platform.top + height * (surface_from_top - 0.5),
                                      platform.width, height)
+
+
+class JungleBackground(Background):
+    def __init__(self):
+        self.image = load_image('assets/deep_jungle.png')
+        self.platform_image = load_image('assets/jungle_platform.png')
+
+    def draw(self):
+        # 원본 높이의 76%에 있는 이끼 낀 길을 실제 지면 높이에 맞춥니다.
+        height = (1080 - self.GROUND_Y) / 0.76
+        self.image.draw(960, 1080 - height / 2, 1920, height)
+        self.draw_platforms(0.36)

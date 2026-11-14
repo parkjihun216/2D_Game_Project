@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import game_world
+import hud
 import play_mode
 import main
 
@@ -52,6 +53,30 @@ class PlayModeTests(unittest.TestCase):
             play_mode.draw()
         self.assertEqual([call[0] for call in calls.mock_calls],
                          ['clear', 'world', 'hud.draw', 'present'])
+
+    def test_p_enters_jungle_once_and_preserves_player(self):
+        event = SimpleNamespace(type=play_mode.SDL_KEYDOWN, key=play_mode.SDLK_p)
+        with patch('background.load_image', return_value=Mock(w=200, h=100)), \
+                patch('character.load_image'), patch.object(play_mode, 'load_image'), \
+                patch.object(play_mode, 'LavaTorrent'), patch.object(hud, 'load_image'), \
+                patch.object(hud, 'load_font'), patch.object(hud, 'TTF_CloseFont'), \
+                patch.object(hud, 'monotonic', side_effect=[10, 45]), \
+                patch.object(play_mode, 'SDL_PumpEvents'), \
+                patch.object(play_mode, 'SDL_HasEvent', return_value=False), \
+                patch.object(play_mode, 'get_events', return_value=[event, event]):
+            play_mode.init()
+            player = play_mode.character
+            player.health = 65
+            self.assertEqual(len(player.enemies), 5)
+            play_mode.handle_events()
+            self.assertIsInstance(game_world.world[0][0], play_mode.JungleBackground)
+            self.assertIs(play_mode.character, player)
+            self.assertEqual(player.health, 65)
+            self.assertEqual(player.enemies, [])
+            self.assertEqual(game_world.world[1], [player])
+            self.assertEqual(play_mode.hud.stage, 2)
+            self.assertEqual(play_mode.hud.deadline, 45 + hud.PlayerHUD.ROUND_SECONDS)
+            play_mode.finish()
 
     def test_keyboard_forwarding_and_escape(self):
         player = Mock()

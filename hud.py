@@ -23,7 +23,10 @@ class PlayerHUD:
         font_path = files('pico2d').joinpath('data', 'ConsolaMalgun.ttf')
         self.timer_font = load_font(str(font_path), 42)
         self.stage_font = load_font(str(font_path), 22)
-        self.stage = 1
+        self.start_stage(1)
+
+    def start_stage(self, stage):
+        self.stage = stage
         self.deadline = monotonic() + self.ROUND_SECONDS
 
     def close(self):
