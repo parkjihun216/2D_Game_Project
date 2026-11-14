@@ -94,6 +94,46 @@ class PlayModeTests(unittest.TestCase):
         player.handle_event.assert_called_once_with(key)
         self.assertFalse(play_mode.running)
 
+    def test_second_p_starts_intro_and_only_then_enables_boss_combat(self):
+        event = lambda kind, key: SimpleNamespace(type=kind, key=key)
+        down, up = play_mode.SDL_KEYDOWN, play_mode.SDL_KEYUP
+        p = play_mode.SDLK_p
+        for skip in (False, True):
+            with self.subTest(skip=skip), patch.object(play_mode, 'hud') as status, \
+                    patch.object(play_mode, 'character') as player, \
+                    patch('boss_stage.load_image'), patch.object(play_mode, 'load_image'), \
+                    patch.object(play_mode, 'SDL_PumpEvents'), \
+                    patch.object(play_mode, 'SDL_HasEvent', return_value=False), \
+                    patch.object(play_mode, 'get_events') as events, patch.object(game_world, 'update') as combat:
+                status.stage = 2
+                player.ground_y = 200
+                player.health = 63
+                events.return_value = [event(down, p), event(up, p), event(down, p),
+                                       event(down, ord('u'))]
+                play_mode.handle_events()
+                boss, = player.enemies
+                self.assertIsInstance(boss, play_mode.DemonVergil)
+                self.assertEqual(game_world.world[1], [boss, player])
+                self.assertEqual(player.health, 63)
+                player.handle_event.assert_not_called()
+                play_mode.update(2)
+                status.start_stage.assert_not_called()
+                if skip:
+                    events.return_value = [event(down, play_mode.SDLK_SPACE)]
+                    play_mode.handle_events()
+                play_mode.update(0.016 if skip else 3.0)
+                self.assertIsNone(play_mode.intro)
+                status.start_stage.assert_called_once_with(3)
+                combat.assert_not_called()
+                status.stage = 3
+                events.return_value = [event(up, p), event(down, p)]
+                play_mode.handle_events()
+                self.assertIs(player.enemies[0], boss)
+                play_mode.update(0.016)
+                combat.assert_called_once_with(0.016)
+                events.return_value = [event(up, p)]
+                play_mode.handle_events()
+
     def test_native_quit_event_stops_game(self):
         with patch.object(play_mode, 'SDL_PumpEvents'), \
                 patch.object(play_mode, 'SDL_HasEvent', return_value=True), \

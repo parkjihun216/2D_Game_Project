@@ -1,9 +1,10 @@
 from pico2d import (
-    get_events, SDL_QUIT, SDL_KEYDOWN, SDLK_ESCAPE, SDLK_p,
+    get_events, SDL_QUIT, SDL_KEYDOWN, SDL_KEYUP, SDLK_ESCAPE, SDLK_p, SDLK_SPACE,
     SDL_PumpEvents, SDL_HasEvent,
     clear_canvas, update_canvas, load_image,
 )
 from background import Background, JungleBackground
+from boss_stage import DemonVergil, SealedSanctum, VergilIntro
 from character import Character
 from lava_torrent import LavaTorrent
 from ember_wisp import EmberWisp
@@ -16,10 +17,13 @@ import game_world
 character = None
 hud = None
 running = False
+intro = None
+p_held = False
 
 
 def init():
-    global character, hud, running
+    global character, hud, running, intro, p_held
+    intro, p_held = None, False
     if hud is not None:
         hud.close()
     character = Character(ground_y=Background.GROUND_Y, enemies=[])
@@ -29,7 +33,6 @@ def init():
 
 
 def _load_stage(stage):
-    background = Background() if stage == 1 else JungleBackground(character)
     enemies = []
     ground = Background.GROUND_Y
     lava_spawns = (
@@ -40,8 +43,10 @@ def _load_stage(stage):
         (ChoirShade, 'assets/enemies/choir_shade.png', 410, 625),
     )
     if stage == 1:
+        background = Background()
         spawns = lava_spawns
-    else:
+    elif stage == 2:
+        background = JungleBackground(character)
         shelf = background.platforms[2]
         spawns = (
             (BriarJaguar, 'assets/enemies/briar_jaguar.png', 240, ground + BriarJaguar.FOOT_OFFSET),
@@ -50,8 +55,13 @@ def _load_stage(stage):
             (JadeHornet, 'assets/enemies/jade_hornet.png', 670, 665),
             (RootGuardian, 'assets/enemies/root_guardian.png', 1740, ground + RootGuardian.FOOT_OFFSET),
         )
+    else:
+        background = SealedSanctum()
+        spawns = ((DemonVergil, 'assets/enemies/blue_vergil.png', 1440, ground + DemonVergil.FOOT_OFFSET),)
     for kind, path, x, y in spawns:
         enemy = kind(load_image(path), x, y, character)
+        if stage == 3:
+            enemy.facing = -1
         if isinstance(enemy, BellExecutioner):
             enemy.slam_image = load_image('assets/enemies/bell_executioner_slam.png')
         enemies.append(enemy)
@@ -64,10 +74,34 @@ def _load_stage(stage):
     game_world.add_object(character, 1)
     if stage == 1:
         game_world.add_object(LavaTorrent(character), 1)
+    return background
+
+
+def _advance_stage():
+    global intro
+    stage = hud.stage + 1
+    if stage == 3:
+        character.x, character.y = 480, character.ground_y
+        character.velocity_y = 0
+        character.ignore_platforms_until_ground = False
+        character.pressed_keys.clear()
+        character.read_direction()
+        character.face_dir = 1
+        character.machine.set_state('IDLE')
+        character.reset_animation()
+    background = _load_stage(stage)
+    character.shockwave = None
+    character.slam_wave_origin = None
+    character.slam_hits.clear()
+    character.struck.clear()
+    if stage == 3:
+        intro = VergilIntro(background)
+    else:
+        hud.start_stage(stage)
 
 
 def handle_events():
-    global running
+    global running, p_held
     # 설치된 pico2d 1.5.0의 get_events는 SDL_QUIT를 반환하지 않으므로 먼저 확인합니다.
     SDL_PumpEvents()
     if SDL_HasEvent(SDL_QUIT):
@@ -79,32 +113,41 @@ def handle_events():
             break
         elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
             running = False
-        elif event.type == SDL_KEYDOWN and event.key == SDLK_p:
-            if hud.stage == 1:
-                _load_stage(2)
-                character.shockwave = None
-                character.slam_wave_origin = None
-                character.slam_hits.clear()
-                character.struck.clear()
-                hud.start_stage(2)
             break
+        elif event.type in (SDL_KEYDOWN, SDL_KEYUP) and event.key == SDLK_p:
+            if event.type == SDL_KEYDOWN and not p_held and intro is None and hud.stage < 3:
+                _advance_stage()
+            p_held = event.type == SDL_KEYDOWN
+        elif intro is not None:
+            if event.type == SDL_KEYDOWN and event.key == SDLK_SPACE:
+                intro.elapsed = intro.DURATION
         else:
             character.handle_event(event)
 
 
 def update(delta_time):
+    global intro
+    if intro is not None:
+        if intro.update(delta_time):
+            intro = None
+            hud.start_stage(3)
+        return
     game_world.update(delta_time)
 
 
 def draw():
     clear_canvas()
-    game_world.render()
-    hud.draw(character)
+    if intro is not None:
+        intro.draw(hud)
+    else:
+        game_world.render()
+        hud.draw(character)
     update_canvas()
 
 
 def finish():
-    global character, hud, running
+    global character, hud, running, intro, p_held
+    intro, p_held = None, False
     game_world.clear()
     character = None
     if hud is not None:
