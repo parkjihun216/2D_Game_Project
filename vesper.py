@@ -1,9 +1,46 @@
 from dataclasses import dataclass
-from math import atan2, cos, hypot, sin
+from math import atan2, cos, hypot, sin, tau
 
 from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_i, SDLK_k, SDLK_o, SDLK_u, draw_line, load_image
 
 from character import Character
+from trigger_shockwave import TriggerShockwave
+
+
+class AmethystAwakening(TriggerShockwave):
+    GATHER_TIME = .14
+    OPEN_TIME = .26
+    FADE_TIME = .52
+
+    def draw_wings(self, image, x, y):
+        if self.elapsed < self.GATHER_TIME:
+            return
+        opening = min(1, (self.elapsed - self.GATHER_TIME) / self.OPEN_TIME)
+        spread = 1 - (1 - opening) ** 3
+        fade = max(0, (self.elapsed - self.GATHER_TIME - self.OPEN_TIME)
+                   / (self.EXPAND_TIME + self.FADE_TIME - self.GATHER_TIME - self.OPEN_TIME))
+        width = self.RADIUS * (0.18 + 1.82 * spread)
+        height = self.RADIUS * (.26 + .88 * spread)
+        image.opacify((.4 + .6 * spread) * max(0, 1 - fade))
+        image.draw(x, y + height * .25 + fade * 28, width, height)
+
+    def draw_sparks(self, bow_x, bow_y, x, y):
+        gathering = self.elapsed < self.GATHER_TIME
+        if gathering:
+            t = self.elapsed / self.GATHER_TIME
+            center_x, center_y = bow_x, bow_y
+            radius, size = 62 * (1 - t), 2 + 3 * t
+        else:
+            t = (self.elapsed - self.GATHER_TIME) / (self.EXPAND_TIME + self.FADE_TIME - self.GATHER_TIME)
+            center_x, center_y = x, y
+            radius, size = self.RADIUS * (1 - (1 - t) ** 2), 7 * (1 - t)
+        for i in range(12):
+            angle = tau * i / 12 + (.65 * t if gathering else .65)
+            distance = radius * (.72 if i % 2 else 1)
+            px = center_x + cos(angle) * distance
+            py = center_y + sin(angle) * distance * .62
+            draw_line(px - size, py, px + size, py, 180, 82, 255)
+            draw_line(px, py - 1.6 * size, px, py + 1.6 * size, 231, 189, 255)
 
 
 @dataclass
@@ -54,6 +91,7 @@ class SpiritArrow:
 
 
 class Vesper(Character):
+    TRIGGER_WAVE = AmethystAwakening
     HUMAN_SHEET = 'assets/vesper/human.png'
     DEMON_SHEET = 'assets/vesper/demon.png'
     SHOT_INTERVAL = 0.095
@@ -69,7 +107,7 @@ class Vesper(Character):
         self.images = {
             'human': load_image(self.HUMAN_SHEET),
             'demon': load_image(self.DEMON_SHEET),
-            'shockwave': load_image('assets/dante/trigger_shockwave.png'),
+            'wings': load_image('assets/vesper/trigger_wings.png'),
         }
 
     def clear_stage_attacks(self):
@@ -117,7 +155,7 @@ class Vesper(Character):
 
     def draw(self):
         if self.shockwave is not None:
-            self.shockwave.draw(self.images['shockwave'])
+            self.shockwave.draw_wings(self.images['wings'], self.x, self.y + 105)
         row = {'IDLE': 0, 'RUN': 1, 'JUMP': 3}[self.state]
         frame, facing = self.frame, self.face_dir
         if self.shot_time is not None:
@@ -128,5 +166,9 @@ class Vesper(Character):
                                   self.CELL, self.CELL, 0, 'h' if facing < 0 else '',
                                   self.x, self.y + (300 - self.CELL / 2) * self.DRAW_SCALE,
                                   size, size)
+        if self.shockwave is not None:
+            bow_offset = 48 if self.shot_time is not None else -22
+            self.shockwave.draw_sparks(self.x + facing * bow_offset, self.y + 95,
+                                       self.shockwave.x, self.shockwave.y)
         for arrow in self.arrows:
             arrow.draw()

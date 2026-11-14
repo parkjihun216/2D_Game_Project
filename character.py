@@ -10,6 +10,7 @@ from trigger_shockwave import TriggerShockwave
 class Character:
     # LEC 12: 같은 클래스의 객체들이 이미지를 한 번만 로딩해 공유합니다.
     images = None
+    TRIGGER_WAVE = TriggerShockwave
 
     SHEET_WIDTH = SHEET_HEIGHT = 1254
     CELL_EDGES = (0, 314, 627, 941, 1254)
@@ -236,7 +237,7 @@ class Character:
             elif event.key == SDLK_l and self.trigger_cooldown <= 1e-10:
                 self.demon_remaining = self.MORPH_TIME + self.DEMON_TIME
                 self.trigger_cooldown = self.TRIGGER_COOLDOWN
-                self.shockwave = TriggerShockwave(self.x, self.y + 90, self.enemies)
+                self.shockwave = self.TRIGGER_WAVE(self.x, self.y + 90, self.enemies)
 
     def _move_x(self, distance):
         margin = 130 * self.DRAW_SCALE
