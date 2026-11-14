@@ -23,11 +23,12 @@ class Slot:
     name: str
     player_type: type | None = None
     idle_sheet: str | None = None
+    portrait: str | None = None
 
 
 ROSTER = (
-    Slot('단테', Character, 'character1.png'),
-    Slot('베스퍼', Vesper, Vesper.HUMAN_SHEET),
+    Slot('단테', Character, 'character1.png', 'assets/dante/portrait.png'),
+    Slot('베스퍼', Vesper, Vesper.HUMAN_SHEET, 'assets/vesper/portrait.png'),
     Slot('미공개'),
 )
 
@@ -40,7 +41,7 @@ def draw_lock(x, y, size, color):
     draw_line(x, y - .14 * size, x, y - .34 * size, *color)
 
 
-def draw(selected, backdrop, previews, heading, label, small):
+def draw(selected, backdrop, previews, portraits, heading, label, small):
     clear_canvas()
     draw_rectangle(0, 0, 1919, 1079, 13, 12, 17, filled=True)
     backdrop.draw(960, 540, 1920, 1080)
@@ -50,6 +51,10 @@ def draw(selected, backdrop, previews, heading, label, small):
     heading.draw(144, 978, '캐릭터 선택', ivory)
 
     slot = ROSTER[selected]
+    if slot.portrait:
+        portrait = portraits[slot.portrait]
+        scale = min(590 / portrait.w, 720 / portrait.h)
+        portrait.draw(1476, 680, portrait.w * scale, portrait.h * scale)
     if slot.idle_sheet:
         sprite = previews[slot.idle_sheet]
         frame = int(get_time() / Character.ANIMATIONS['IDLE']['interval']) % 4
@@ -58,7 +63,7 @@ def draw(selected, backdrop, previews, heading, label, small):
         top = round(sprite.h / 4)
         sprite.clip_draw(left, sprite.h - top, right - left, top, 686, 682, 770, 770)
         if slot.player_type is Vesper:
-            small.draw(1090, 520, 'U  활 사격     L  악마 변신', ivory)
+            small.draw(144, 891, 'U  활 사격     L  악마 변신', ivory)
     else:
         draw_lock(686, 595, 92, (200, 183, 168))
 
@@ -89,12 +94,13 @@ def run():
     backdrop = load_image('assets/title_cathedral.png')
     backdrop.opacify(.53)
     previews = {slot.idle_sheet: load_image(slot.idle_sheet) for slot in ROSTER if slot.idle_sheet}
+    portraits = {slot.portrait: load_image(slot.portrait) for slot in ROSTER if slot.portrait}
     font_path = str(files('pico2d').joinpath('data', 'ConsolaMalgun.ttf'))
     heading, label, small = (load_font(font_path, size) for size in (64, 44, 26))
     selected = 0
     try:
         while True:
-            draw(selected, backdrop, previews, heading, label, small)
+            draw(selected, backdrop, previews, portraits, heading, label, small)
             SDL_PumpEvents()
             if SDL_HasEvent(SDL_QUIT):
                 return Navigation.QUIT
