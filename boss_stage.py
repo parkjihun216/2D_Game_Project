@@ -89,11 +89,16 @@ class DemonVergil(Monster):
     RECOVERY = 1.7
     DAMAGE = 18
     DASH_TIME = 0.24
+    CELL_WIDTH = 448
+    CELL_HEIGHT = 384
+    FOOT_INSET = 8
 
     def __init__(self, image, x, y, player=None):
         super().__init__(image, x, y, player)
         self.form = 'human'
-        self.demon_image = load_image('assets/enemies/winged_vergil.png')
+        self.demon_image = load_image('assets/enemies/winged_vergil_actions.png')
+        self.walk_distance = 0.0
+        self.moving = False
 
     def take_damage(self, amount):
         if self.form == 'transforming':
@@ -106,21 +111,42 @@ class DemonVergil(Monster):
     def finish_transformation(self):
         self.image = self.demon_image
         self.form = 'demon'
+        self.moving = False
+        self.walk_distance = 0.0
         self.recover()
 
+    def update(self, dt):
+        self.moving = False
+        super().update(dt)
+
+    def animation_cell(self):
+        # 시트의 행은 위에서부터 대기, 보행, 공격입니다.
+        if self.phase == 'warning':
+            return 2, int(self.timer <= self.WINDUP / 2)
+        if self.phase == 'quickdraw':
+            return 2, 2 + int(self.timer <= self.DASH_TIME / 2)
+        if self.moving:
+            return 1, int(self.walk_distance / 18) % 4
+        return 0, int(self.age / 0.18) % 4
+
     def draw_sprite(self, recoil):
-        if self.form == 'demon':
-            return super().draw_sprite(recoil)
-        height = 250
+        row, column = self.animation_cell()
+        # 투명 여백을 제외한 대기 자세의 실제 높이로 화면 배율을 맞춥니다.
+        height = 450 if self.form == 'demon' else 250
+        scale = height / (330 if self.form == 'demon' else 350)
         ground = self.y - self.FOOT_OFFSET
-        self.image.clip_composite_draw(0, 0, self.image.w, self.image.h, 0,
+        self.image.clip_composite_draw(column * self.CELL_WIDTH, (2 - row) * self.CELL_HEIGHT,
+                                       self.CELL_WIDTH, self.CELL_HEIGHT, 0,
                                        'h' if self.facing < 0 else '',
-                                       self.x + recoil, ground + height / 2,
-                                       height * self.image.w / self.image.h, height)
+                                       self.x + recoil, ground + (self.CELL_HEIGHT / 2 - self.FOOT_INSET) * scale,
+                                       self.CELL_WIDTH * scale, self.CELL_HEIGHT * scale)
         return ground + height
 
     def seek(self, dx, dy, dt):
+        previous_x = self.x
         self.approach(dx, 0, 120, dt)
+        self.moving = self.x != previous_x
+        self.walk_distance += abs(self.x - previous_x)
 
     def in_range(self, dx, dy):
         return abs(dx) <= self.RANGE and abs(dy) < 135

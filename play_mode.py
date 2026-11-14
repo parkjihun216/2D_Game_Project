@@ -59,7 +59,7 @@ def _load_stage(stage):
         )
     else:
         background = SealedSanctum()
-        spawns = ((DemonVergil, 'assets/enemies/human_vergil.png', 1440, ground + DemonVergil.FOOT_OFFSET),)
+        spawns = ((DemonVergil, 'assets/enemies/human_vergil_actions.png', 1440, ground + DemonVergil.FOOT_OFFSET),)
     for kind, path, x, y in spawns:
         enemy = kind(load_image(path), x, y, character)
         if stage == 3:
