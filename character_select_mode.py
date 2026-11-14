@@ -10,6 +10,7 @@ from pico2d import (
 )
 
 from character import Character
+from vesper import Vesper
 
 
 class Navigation(Enum):
@@ -26,7 +27,7 @@ class Slot:
 
 ROSTER = (
     Slot('단테', Character, 'character1.png'),
-    Slot('미공개'),
+    Slot('베스퍼', Vesper, Vesper.HUMAN_SHEET),
     Slot('미공개'),
 )
 
@@ -52,9 +53,12 @@ def draw(selected, backdrop, previews, heading, label, small):
     if slot.idle_sheet:
         sprite = previews[slot.idle_sheet]
         frame = int(get_time() / Character.ANIMATIONS['IDLE']['interval']) % 4
-        left, right = Character.CELL_EDGES[frame:frame + 2]
-        top = Character.CELL_EDGES[1]
+        left = round(frame * sprite.w / 4)
+        right = round((frame + 1) * sprite.w / 4)
+        top = round(sprite.h / 4)
         sprite.clip_draw(left, sprite.h - top, right - left, top, 686, 682, 770, 770)
+        if slot.player_type is Vesper:
+            small.draw(1090, 520, 'U  활 사격     L  악마 변신', ivory)
     else:
         draw_lock(686, 595, 92, (200, 183, 168))
 

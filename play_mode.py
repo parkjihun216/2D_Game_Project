@@ -93,10 +93,7 @@ def _advance_stage():
         character.machine.set_state('IDLE')
         character.reset_animation()
     _load_stage(stage)
-    character.shockwave = None
-    character.slam_wave_origin = None
-    character.slam_hits.clear()
-    character.struck.clear()
+    character.clear_stage_attacks()
     if stage == 3:
         intro = VergilIntro()
     else:

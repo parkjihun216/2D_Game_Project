@@ -91,16 +91,7 @@ class Character:
         self.slam_wave_scale = 1.0
         self.velocity_y = 0.0
         self.canvas_width = canvas_width
-        if Character.images is None:
-            Character.images = {
-                1: load_image('character1.png'),
-                2: load_image('character2.png'),
-                'fx': load_image('assets/dante/demon_skill_fx.png'),
-                'morph': load_image('assets/dante/devil_trigger_transform_v2.png'),
-                'demon_run': load_image('assets/dante/demon_run.png'),
-                'shockwave': load_image('assets/dante/trigger_shockwave.png'),
-                'slam_wave': load_image('assets/dante/slam_ground_wave.png'),
-            }
+        self._load_images()
         self.frame = 0
         self.frame_elapsed = 0.0
         self.jump_fx = False
@@ -121,6 +112,24 @@ class Character:
             ignore_invalid_triggers=True,
             before_state_change='reset_animation',
         )
+
+    def _load_images(self):
+        if Character.images is None:
+            Character.images = {
+                1: load_image('character1.png'),
+                2: load_image('character2.png'),
+                'fx': load_image('assets/dante/demon_skill_fx.png'),
+                'morph': load_image('assets/dante/devil_trigger_transform_v2.png'),
+                'demon_run': load_image('assets/dante/demon_run.png'),
+                'shockwave': load_image('assets/dante/trigger_shockwave.png'),
+                'slam_wave': load_image('assets/dante/slam_ground_wave.png'),
+            }
+
+    def clear_stage_attacks(self):
+        self.shockwave = None
+        self.slam_wave_origin = None
+        self.slam_hits.clear()
+        self.struck.clear()
 
     def reset_animation(self):
         self._set_frame(0)
