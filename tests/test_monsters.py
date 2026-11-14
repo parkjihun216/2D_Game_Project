@@ -44,6 +44,29 @@ class MonsterCombatTests(unittest.TestCase):
                     self.assertEqual(enemy.phase, 'ready')
                     self.assertEqual(p.health, 100 if dodge else 100 - enemy.DAMAGE)
 
+    def test_toad_patrols_both_ends_then_casts_from_its_landing_point(self):
+        p = self.player
+        toad = SporeToad(None, 1210, 450 + SporeToad.FOOT_OFFSET, p)
+        positions = []
+        for _ in range(240):
+            toad.update(1 / 60)
+            positions.append((toad.x, toad.y))
+        self.assertAlmostEqual(min(x for x, y in positions), 1210 - toad.HOP_DISTANCE)
+        self.assertAlmostEqual(max(x for x, y in positions), 1210 + toad.HOP_DISTANCE)
+        self.assertGreater(max(y for x, y in positions), toad.home[1] + 30)
+        p.x, p.y = toad.x, 450
+        for _ in range(60):
+            toad.update(1 / 60)
+            if toad.phase == 'warning':
+                break
+        self.assertEqual((toad.phase, toad.y), ('warning', toad.home[1]))
+        landing = (toad.x, toad.y)
+        toad.update(toad.WINDUP)
+        self.assertEqual(toad.phase, 'cloud')
+        toad.update(0.6)
+        self.assertEqual((toad.x, toad.y), landing)
+        self.assertEqual(p.health, p.MAX_HEALTH - toad.DAMAGE)
+
     def test_sword_hits_each_monster_once_per_swing_and_can_kill(self):
         p = self.player
         p.enemies = [kind(None, p.x + 60, p.y + 60, p) for kind, _, _ in self.CASES]

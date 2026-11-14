@@ -75,10 +75,30 @@ class SporeToad(Monster):
     RANGE = 130
     WINDUP = 0.8
     DAMAGE = 10
+    HOP_DISTANCE = 80
+    HOP_HEIGHT = 32
+    HOP_TIME = 0.48
+    REST_TIME = 0.30
+
+    def __init__(self, image, x, y, player=None):
+        super().__init__(image, x, y, player)
+        self.patrol_time = 0.0
 
     def seek(self, dx, dy, dt):
-        # 고정 선반에서 주변을 지킵니다.
-        pass
+        step_time = self.HOP_TIME + self.REST_TIME
+        self.patrol_time = (self.patrol_time + dt) % (4 * step_time)
+        step, elapsed = divmod(self.patrol_time, step_time)
+        # 선반 중앙 → 오른쪽 → 중앙 → 왼쪽 → 중앙.
+        stops = (0, 1, 0, -1, 0)
+        index = int(step)
+        self.facing = stops[index + 1] - stops[index]
+        t = min(1.0, elapsed / self.HOP_TIME)
+        self.x = self.home[0] + self.HOP_DISTANCE * (stops[index] + self.facing * t)
+        self.y = self.home[1] + self.HOP_HEIGHT * 4 * t * (1 - t)
+
+    def in_range(self, dx, dy):
+        return self.y == self.home[1] and hypot(self.player.x - self.x,
+                                                self.player.y + 65 - self.y) <= self.RANGE
 
     def draw_warning(self):
         draw_circle(self.x, self.y, self.RANGE, 230, 182, 73)
@@ -121,6 +141,7 @@ class JadeHornet(Gargoyle):
 
 class RootGuardian(Monster):
     SIZE = (154, 162)
+    DRAW_SCALE = 2.0
     FOOT_OFFSET = 79
     HIT_RADIUS = 56
     MAX_HEALTH = 180
