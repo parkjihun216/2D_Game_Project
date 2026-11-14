@@ -77,6 +77,8 @@ class Character:
         self.platforms = platforms
         self.enemies = enemies
         self.health = self.MAX_HEALTH
+        self.hurt_remaining = 0.0
+        self.struck = set()
         self.shockwave = None
         self.slam_wave_origin = None
         self.slam_wave_age = 0.0
@@ -115,6 +117,21 @@ class Character:
     def reset_animation(self):
         self._set_frame(0)
         self.jump_fx = False
+        self.struck.clear()
+
+    def take_damage(self, amount):
+        if self.hurt_remaining <= 0 and self.health > 0:
+            self.health = max(0, self.health - amount)
+            self.hurt_remaining = 0.65
+
+    def _hit_nearby(self, x, y, half_width, half_height, damage):
+        for enemy in self.enemies:
+            if enemy.health <= 0 or enemy in self.struck:
+                continue
+            if (abs(enemy.x - x) <= half_width + enemy.HIT_RADIUS
+                    and abs(enemy.y - y) <= half_height + enemy.HIT_RADIUS):
+                enemy.take_damage(damage)
+                self.struck.add(enemy)
 
     def _set_frame(self, frame):
         self.frame = frame
@@ -213,6 +230,7 @@ class Character:
             self.shockwave = None
         self.demon_remaining = max(0.0, self.demon_remaining - remaining)
         self.trigger_cooldown = max(0.0, self.trigger_cooldown - remaining)
+        self.hurt_remaining = max(0.0, self.hurt_remaining - remaining)
         while remaining > 1e-10:
             step = min(remaining, 1 / 120)
             self._update_step(step)
@@ -251,6 +269,7 @@ class Character:
                 landed = self._apply_gravity(dt)
                 if landed:
                     self._set_frame(2)
+                    self._hit_nearby(self.x, self.y + 45, 165, 65, 38)
                     self.slam_wave_origin = (self.x, self.y)
                     self.slam_wave_age = 0.0
                     drop = self.slam_peak_y - self.y
@@ -269,6 +288,11 @@ class Character:
             self._move_x(self.dir * self.MOVE_SPEED * dt)
         elif self.state == 'THRUST' and self.frame in (1, 2):
             self._move_x(self.face_dir * 720.0 * dt)
+
+        if self.frame in (1, 2) and self.state in ('ATTACK', 'THRUST', 'UPPERCUT'):
+            high = self.state == 'UPPERCUT'
+            self._hit_nearby(self.x + self.face_dir * 62, self.y + (128 if high else 80),
+                             82, 95 if high else 58, 32 if high else 26)
 
         if self.state in ('RUN', 'THRUST') and self.is_airborne():
             self.fall()

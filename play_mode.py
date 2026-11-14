@@ -7,6 +7,7 @@ from background import Background
 from character import Character
 from lava_torrent import LavaTorrent
 from ember_wisp import EmberWisp
+from monsters import BellExecutioner, ChainHound, ChoirShade, Gargoyle
 from hud import PlayerHUD
 import game_world
 
@@ -22,12 +23,24 @@ def init():
         hud.close()
     game_world.clear()
     game_world.add_object(Background(), 0)
-    wisp_image = load_image('assets/ember_wisp.png')
-    enemies = [EmberWisp(wisp_image, x, y) for x, y in ((760, 360), (1170, 360), (1510, 625))]
-    for enemy in enemies:
-        game_world.add_object(enemy, 1)
+    enemies = []
     character = Character(ground_y=Background.GROUND_Y, platforms=Background.PLATFORMS,
                           enemies=enemies)
+    ground = Background.GROUND_Y
+    spawns = (
+        (EmberWisp, 'assets/ember_wisp.png', 730, 360),
+        (ChainHound, 'assets/enemies/chain_hound.png', 200, ground + 52),
+        (Gargoyle, 'assets/enemies/gargoyle.png', 1180, 540),
+        (BellExecutioner, 'assets/enemies/bell_executioner.png', 1620, ground + 78),
+        (ChoirShade, 'assets/enemies/choir_shade.png', 410, 625),
+    )
+    for kind, path, x, y in spawns:
+        enemy = kind(load_image(path), x, y, character)
+        if isinstance(enemy, BellExecutioner):
+            enemy.slam_image = load_image('assets/enemies/bell_executioner_slam.png')
+        enemies.append(enemy)
+    for enemy in enemies:
+        game_world.add_object(enemy, 1)
     game_world.add_object(character, 1)
     game_world.add_object(LavaTorrent(character), 1)
     hud = PlayerHUD()

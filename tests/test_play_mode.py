@@ -36,7 +36,7 @@ class PlayModeTests(unittest.TestCase):
                 patch.object(play_mode, 'PlayerHUD'):
             play_mode.init()
             play_mode.init()
-            self.assertEqual([len(layer) for layer in game_world.world], [1, 5])
+            self.assertEqual([len(layer) for layer in game_world.world], [1, 7])
             self.assertTrue(play_mode.running)
             play_mode.finish()
         self.assertEqual(game_world.world, [[], []])
