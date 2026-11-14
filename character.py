@@ -15,6 +15,7 @@ class Character:
     CELL_EDGES = (0, 314, 627, 941, 1254)
     DRAW_SCALE = 0.8
     MOVE_SPEED = 300.0
+    THRUST_SPEED = 1000.0
     GRAVITY = 1800.0
     JUMP_SPEED = 650.0
     MORPH_TIME = 0.32
@@ -59,6 +60,8 @@ class Character:
         {'trigger': 'jump', 'source': ['IDLE', 'RUN'], 'dest': 'JUMP', 'after': 'start_jump_fx'},
         {'trigger': 'fall', 'source': ['IDLE', 'RUN', 'THRUST'], 'dest': 'JUMP'},
         {'trigger': 'thrust', 'source': ['IDLE', 'RUN'], 'dest': 'THRUST'},
+        {'trigger': 'thrust', 'source': 'JUMP', 'dest': 'THRUST',
+         'conditions': 'is_airborne', 'after': 'start_air_thrust'},
         {'trigger': 'uppercut', 'source': ['IDLE', 'RUN'], 'dest': 'UPPERCUT'},
         {'trigger': 'slam', 'source': ['IDLE', 'RUN'], 'dest': 'SLAM',
          'after': 'start_ground_slam'},
@@ -101,6 +104,7 @@ class Character:
         self.frame = 0
         self.frame_elapsed = 0.0
         self.jump_fx = False
+        self.air_thrust = False
         self.demon_remaining = 0.0
         self.trigger_cooldown = 0.0
         self.face_dir = 1
@@ -119,6 +123,7 @@ class Character:
     def reset_animation(self):
         self._set_frame(0)
         self.jump_fx = False
+        self.air_thrust = False
         self.struck.clear()
 
     def take_damage(self, amount):
@@ -159,6 +164,10 @@ class Character:
 
     def start_jump_fx(self):
         self.jump_fx = True
+
+    def start_air_thrust(self):
+        self.air_thrust = True
+        self.face_movement()
 
     def start_air_slam(self):
         self.slam_peak_y = self.y
@@ -291,14 +300,17 @@ class Character:
         if self.state == 'RUN':
             self._move_x(self.dir * self.MOVE_SPEED * dt)
         elif self.state == 'THRUST' and self.frame in (1, 2):
-            self._move_x(self.face_dir * 720.0 * dt)
+            self._move_x(self.face_dir * self.THRUST_SPEED * dt)
+
+        if self.air_thrust:
+            self._apply_gravity(dt)
 
         if self.frame in (1, 2) and self.state in ('ATTACK', 'THRUST', 'UPPERCUT'):
             high = self.state == 'UPPERCUT'
             self._hit_nearby(self.x + self.face_dir * 62, self.y + (128 if high else 80),
                              82, 95 if high else 58, 32 if high else 26, self.struck)
 
-        if self.state in ('IDLE', 'RUN', 'THRUST') and self.is_airborne():
+        if self.state in ('IDLE', 'RUN', 'THRUST') and not self.air_thrust and self.is_airborne():
             self.fall()
             self._set_frame(2)
             return
@@ -307,7 +319,11 @@ class Character:
             self.frame_elapsed -= interval
             self.frame = (self.frame + 1) % 4
             if self.frame == 0 and self.state not in ('IDLE', 'RUN'):
-                self.finish_action()
+                if self.air_thrust and self.is_airborne():
+                    self.fall()
+                    self._set_frame(1 if self.velocity_y > 0 else 2)
+                else:
+                    self.finish_action()
 
     def _draw_skill_fx(self, row, empowered):
         sheet = self.images['fx']

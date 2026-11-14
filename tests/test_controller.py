@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import character as game
-from background import Background, JungleBackground
+from background import Background, JungleBackground, Platform
 from ember_wisp import EmberWisp
 from trigger_shockwave import TriggerShockwave
 
@@ -274,6 +274,39 @@ class CharacterTests(unittest.TestCase):
         self.assertGreaterEqual(self.player.x, 130 * self.player.DRAW_SCALE)
         self.release(game.SDLK_LEFT)
         self.assertEqual(self.player.state, 'IDLE')
+
+    def test_air_thrust_continues_jump_and_hits_once_in_both_directions(self):
+        for direction, key in ((-1, game.SDLK_LEFT), (1, game.SDLK_RIGHT)):
+            with self.subTest(direction=direction):
+                p = self.player = game.Character()
+                self.press(game.SDLK_j)
+                p.update(0.25)
+                self.press(key)
+                self.press(game.SDLK_i)
+                self.release(key)
+                self.assertEqual(p.state, 'THRUST')
+                x, y, vy = p.x, p.y, p.velocity_y
+                enemy = EmberWisp(None, x + direction * 250, y + 115)
+                p.enemies = [enemy]
+                p.update(0.4)
+                self.assertAlmostEqual(p.x, x + direction * 200)
+                self.assertAlmostEqual(p.y, y + vy * 0.4 - 0.5 * p.GRAVITY * 0.4 ** 2)
+                self.assertEqual((p.state, p.frame), ('JUMP', 2))
+                self.assertEqual(enemy.health, enemy.MAX_HEALTH - 26)
+                p.update(0.8)
+                self.assertEqual((p.state, p.y), ('IDLE', p.ground_y))
+
+    def test_falling_thrust_lands_on_platform_during_attack(self):
+        p = self.player
+        p.platforms = (Platform(p.x + 145, p.ground_y + 75, 240),)
+        self.press(game.SDLK_j)
+        p.update(0.53)
+        self.assertLess(p.velocity_y, 0)
+        self.press(game.SDLK_i)
+        p.update(0.32)
+        self.assertEqual((p.state, p.y, p.velocity_y), ('THRUST', p.platforms[0].top, 0))
+        p.update(0.08)
+        self.assertEqual(p.state, 'IDLE')
 
     def test_jump_movement_and_update_rate(self):
         self.press(game.SDLK_RIGHT)
