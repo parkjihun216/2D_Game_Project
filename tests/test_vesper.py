@@ -5,6 +5,8 @@ from unittest.mock import patch
 from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_j, SDLK_l, SDLK_u
 
 from monsters import Monster
+from arrow_rain import ArrowRain, RainBolt
+from background import Platform
 from vesper import Vesper
 
 
@@ -51,3 +53,53 @@ class VesperTests(unittest.TestCase):
         self.tap(SDLK_u)
         self.player.update(.22)
         self.assertEqual(len(self.player.arrows), 1)
+
+    def test_second_press_charges_once_and_rain_leaves_burning_ground(self):
+        p = self.player
+        down = SimpleNamespace(type=SDL_KEYDOWN, key=SDLK_l)
+        p.handle_event(down)
+        p.handle_event(down)
+        self.assertIsNone(p.rain)
+        p.handle_event(SimpleNamespace(type=SDL_KEYUP, key=SDLK_l))
+        self.tap(SDLK_l)
+        cast = p.rain
+        self.tap(SDLK_l)
+        self.assertIs(p.rain, cast)
+        self.tap(SDLK_u)
+        p.update(.5)
+        self.assertTrue(cast.aiming)
+        self.assertFalse(p.arrows)
+        self.assertIsNone(cast.origin)
+        p.update(.5)
+        self.assertIsNotNone(cast.origin)
+        self.assertFalse(cast.bolts)
+        target = Monster(None, p.x + 245 - 425, p.ground_y + 32)
+        p.enemies = [target]
+        p.update(1.1)
+        self.assertTrue(cast.fires)
+        self.assertLessEqual(target.health, target.MAX_HEALTH - 22 - 6)
+        hp = target.health
+        p.update(.4)
+        self.assertLess(target.health, hp)
+        p.update(4)
+        self.assertEqual(cast.launched, ArrowRain.COUNT)
+        self.assertIsNone(p.rain)
+        self.tap(SDLK_l)
+        self.assertIsNotNone(p.rain)
+        p.clear_stage_attacks()
+        self.assertIsNone(p.rain)
+
+    def test_arrow_hits_first_platform_and_fire_moves_with_it(self):
+        p = self.player
+        ledge = Platform(520, 600, 200)
+        p.platforms = [Platform(520, 350, 200), ledge]
+        enemy = Monster(None, 521, 380)
+        p.enemies = [enemy]
+        bolt = RainBolt(480, 800, 1, 0)
+        fire = bolt.advance(.6, p)
+        self.assertIs(fire.platform, ledge)
+        self.assertEqual(fire.y, ledge.top)
+        self.assertEqual(enemy.health, enemy.MAX_HEALTH)
+        x = fire.x
+        ledge.x += 42
+        self.assertEqual(fire.x, x + 42)

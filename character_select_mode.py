@@ -63,7 +63,7 @@ def draw(selected, backdrop, previews, portraits, heading, label, small):
         top = round(sprite.h / 4)
         sprite.clip_draw(left, sprite.h - top, right - left, top, 686, 682, 770, 770)
         if slot.player_type is Vesper:
-            small.draw(144, 891, 'U  활 사격     L  악마 변신', ivory)
+            small.draw(144, 891, 'U  활 사격     L  악마 변신 / 화살비', ivory)
     else:
         draw_lock(686, 595, 92, (200, 183, 168))
 

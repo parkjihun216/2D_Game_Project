@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from math import atan2, cos, hypot, sin, tau
 
-from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_i, SDLK_k, SDLK_o, SDLK_u, draw_line, load_image
+from pico2d import SDL_KEYDOWN, SDL_KEYUP, SDLK_i, SDLK_k, SDLK_l, SDLK_o, SDLK_u, draw_line, load_image
 
 from character import Character
+from arrow_rain import ArrowRain
 from trigger_shockwave import TriggerShockwave
 
 
@@ -102,27 +103,39 @@ class Vesper(Character):
         self.arrows = []
         self.shot_time = None
         self.shot_facing = self.face_dir
+        self.rain = None
 
     def _load_images(self):
         self.images = {
             'human': load_image(self.HUMAN_SHEET),
             'demon': load_image(self.DEMON_SHEET),
             'wings': load_image('assets/vesper/trigger_wings.png'),
+            'skyshot': load_image('assets/vesper/skyshot.png'),
+            'witchfire': load_image('assets/vesper/witchfire.png'),
+            'rain_arrow': load_image('assets/vesper/rain_arrow.png'),
         }
 
     def clear_stage_attacks(self):
         super().clear_stage_attacks()
         self.shot_time = None
         self.arrows.clear()
+        self.rain = None
 
     def handle_event(self, event):
         if event.type in (SDL_KEYDOWN, SDL_KEYUP):
             if event.key in (SDLK_i, SDLK_o, SDLK_k):
                 return
+            if event.key == SDLK_l and event.type == SDL_KEYDOWN and self.demon_remaining > 0:
+                if event.key not in self.pressed_keys:
+                    self.pressed_keys.append(event.key)
+                    if self.rain is None and self.health > 0:
+                        self.shot_time = None
+                        self.rain = ArrowRain(self.face_dir)
+                return
             if event.key == SDLK_u and event.type == SDL_KEYDOWN:
                 if event.key not in self.pressed_keys:
                     self.pressed_keys.append(event.key)
-                    if self.shot_time is None:
+                    if self.shot_time is None and not (self.rain and self.rain.aiming):
                         self.shot_time = 0.0
                         self.shot_facing = self.face_dir
                 return
@@ -144,6 +157,8 @@ class Vesper(Character):
 
     def _update_step(self, dt):
         super()._update_step(dt)
+        if self.rain and self.rain.update(dt, self):
+            self.rain = None
         self.arrows = [arrow for arrow in self.arrows if arrow.advance(dt, self.enemies)]
         if self.shot_time is not None:
             previous = self.shot_time
@@ -153,9 +168,11 @@ class Vesper(Character):
             if self.shot_time >= 4 * self.SHOT_INTERVAL:
                 self.shot_time = None
 
-    def draw(self):
-        if self.shockwave is not None:
-            self.shockwave.draw_wings(self.images['wings'], self.x, self.y + 105)
+    def _move_x(self, distance):
+        if not (self.rain and self.rain.aiming):
+            super()._move_x(distance)
+
+    def _draw_body(self):
         row = {'IDLE': 0, 'RUN': 1, 'JUMP': 3}[self.state]
         frame, facing = self.frame, self.face_dir
         if self.shot_time is not None:
@@ -166,9 +183,20 @@ class Vesper(Character):
                                   self.CELL, self.CELL, 0, 'h' if facing < 0 else '',
                                   self.x, self.y + (300 - self.CELL / 2) * self.DRAW_SCALE,
                                   size, size)
+
+    def draw(self):
         if self.shockwave is not None:
+            self.shockwave.draw_wings(self.images['wings'], self.x, self.y + 105)
+        if self.rain and self.rain.aiming:
+            self.rain.draw_archer(self, self.images['skyshot'])
+        else:
+            self._draw_body()
+        if self.shockwave is not None:
+            facing = self.shot_facing if self.shot_time is not None else self.face_dir
             bow_offset = 48 if self.shot_time is not None else -22
             self.shockwave.draw_sparks(self.x + facing * bow_offset, self.y + 95,
                                        self.shockwave.x, self.shockwave.y)
         for arrow in self.arrows:
             arrow.draw()
+        if self.rain:
+            self.rain.draw_effects(self.images['witchfire'], self.images['rain_arrow'])
