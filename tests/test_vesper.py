@@ -73,7 +73,7 @@ class VesperTests(unittest.TestCase):
         p.update(.5)
         self.assertIsNotNone(cast.origin)
         self.assertFalse(cast.bolts)
-        target = Monster(None, p.x + 245 - 425, p.ground_y + 32)
+        target = Monster(None, 12, p.ground_y + 32)
         p.enemies = [target]
         p.update(1.1)
         self.assertTrue(cast.fires)
@@ -103,3 +103,27 @@ class VesperTests(unittest.TestCase):
         x = fire.x
         ledge.x += 42
         self.assertEqual(fire.x, x + 42)
+
+    def test_rain_covers_the_whole_arena_from_either_edge(self):
+        p = self.player
+        for width, facing in ((1920, -1), (1280, 1)):
+            with self.subTest(width=width, facing=facing):
+                p.canvas_width = width
+                p.x = 30 if facing < 0 else width - 30
+                p.enemies = [Monster(None, x, p.ground_y + 32) for x in (0, width / 2, width)]
+                cast = ArrowRain(facing)
+                impacts = {}
+                peak = 0
+                for _ in range(450):
+                    done = cast.update(1 / 60, p)
+                    impacts.update((fire.seed, fire.x) for fire in cast.fires)
+                    peak = max(peak, len(cast.bolts))
+                    if done:
+                        break
+                self.assertTrue(done)
+                positions = sorted(impacts.values())
+                self.assertEqual(len(positions), 96)
+                self.assertGreaterEqual(peak, 20)
+                for lane, x in enumerate(positions):
+                    self.assertAlmostEqual(x, (lane + .5) * width / len(positions))
+                self.assertTrue(all(enemy.health < enemy.MAX_HEALTH for enemy in p.enemies))

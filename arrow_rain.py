@@ -100,8 +100,10 @@ class ArrowRain:
     CHARGE = .85
     FOLLOW_THROUGH = .18
     FIRST_DROP = CHARGE + .53
-    COUNT = 20
-    INTERVAL = .085
+    COUNT = 96
+    INTERVAL = .026
+    # 96과 서로소인 간격으로 착탄 지점을 순회해 첫 순간부터 전역에 분산합니다.
+    LANE_STRIDE = 37
     SKY = 1180
 
     def __init__(self, facing):
@@ -109,7 +111,6 @@ class ArrowRain:
         self.age = 0
         self.launched = 0
         self.origin = None
-        self.center = 0
         self.bolts = []
         self.fires = []
         self.next_burn = {}
@@ -122,13 +123,15 @@ class ArrowRain:
         self.age += dt
         if self.origin is None and self.age >= self.CHARGE:
             self.origin = (player.x + self.facing * 48, player.y + 201)
-            self.center = max(445, min(player.canvas_width - 445, player.x + self.facing * 245))
         while self.launched < self.COUNT and self.age >= self.FIRST_DROP + self.launched * self.INTERVAL:
-            # 분산 순서로 떨어뜨려 한쪽 끝에서부터 차례로 훑지 않게 합니다.
-            lane = (self.launched * 7) % self.COUNT
-            target_x = self.center + (lane / (self.COUNT - 1) - .5) * 850
-            start_x = target_x - (self.SKY - player.ground_y) * RainBolt.SLOPE * self.facing
-            self.bolts.append(RainBolt(start_x, self.SKY, self.facing, self.launched))
+            lane = self.launched * self.LANE_STRIDE % self.COUNT
+            target_x = (lane + .5) * player.canvas_width / self.COUNT
+            # 양 가장자리에서도 시작점부터 화살이 화면 안에 보이게 합니다.
+            facing = 1 if lane % 2 else -1
+            drift = (self.SKY - player.ground_y) * RainBolt.SLOPE
+            if not 0 <= target_x - drift * facing <= player.canvas_width:
+                facing = -facing
+            self.bolts.append(RainBolt(target_x - drift * facing, self.SKY, facing, self.launched))
             self.launched += 1
 
         flying = []
@@ -174,6 +177,7 @@ class ArrowRain:
             draw_comet(arrow_image, self.origin[0] + self.facing * rise * .20, self.origin[1] + rise,
                        self.facing * .20, .98, self.age * 21)
         for bolt in self.bolts:
-            draw_comet(arrow_image, bolt.x, bolt.y, self.facing * .17, -.986, self.age * 19 + bolt.seed)
+            draw_comet(arrow_image, bolt.x, bolt.y, bolt.facing * RainBolt.SLOPE, -.986,
+                       self.age * 19 + bolt.seed)
         for fire in self.fires:
             fire.draw(flame_image)
